@@ -108,7 +108,7 @@ ensure_secret secret/minio \
 # без авторизации (username/password пустые); для GHCR/Harbor положить сюда
 # реальные логин и токен: vault kv put secret/registry url=ghcr.io/<user>/<repo> username=... password=...
 ensure_secret secret/registry \
-  url="localhost:5000/healthchecks" \
+  url="127.0.0.1:5000/healthchecks" \
   username="" \
   password=""
 
