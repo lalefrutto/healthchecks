@@ -44,9 +44,12 @@ spec:
             - name: uwsgi-config
               mountPath: /etc/healthchecks
               readOnly: true
+          # Под нагрузкой (Locust, Задание 7) probe с timeout 1 с на "/" не
+          # успевал: ingress снимал backend (503), liveness перезапускал под.
+          # /api/v3/status/ — лёгкий эндпоинт (SELECT 1), таймауты с запасом.
           readinessProbe:
             httpGet:
-              path: /
+              path: /api/v3/status/
               port: http
               # kubelet шлёт Host: <IP пода>, Django его отбросит (ALLOWED_HOSTS)
               httpHeaders:
@@ -54,15 +57,19 @@ spec:
                   value: {{ .Values.ingress.host }}
             initialDelaySeconds: 10
             periodSeconds: 10
+            timeoutSeconds: {{ .Values.web.probes.timeoutSeconds }}
+            failureThreshold: {{ .Values.web.probes.readinessFailureThreshold }}
           livenessProbe:
             httpGet:
-              path: /
+              path: /api/v3/status/
               port: http
               httpHeaders:
                 - name: Host
                   value: {{ .Values.ingress.host }}
             initialDelaySeconds: 20
             periodSeconds: 20
+            timeoutSeconds: {{ .Values.web.probes.timeoutSeconds }}
+            failureThreshold: {{ .Values.web.probes.livenessFailureThreshold }}
           resources:
             {{- toYaml .Values.web.resources | nindent 12 }}
       volumes:

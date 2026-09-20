@@ -16,3 +16,6 @@ deploy/vault/.vault-keys.json
 
 # Результаты consumer (hc/mq)
 results/
+
+# Locust
+loadtest/__pycache__/

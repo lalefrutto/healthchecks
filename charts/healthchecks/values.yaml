@@ -112,15 +112,26 @@ email:
 
 web:
   replicaCount: 1
+  # Значения по замерам Locust (Задание 7, Часть 2): в покое 1m/370Mi
+  # (4 uWSGI-процесса), пик при ~100 пользователях — CPU упирался в старый
+  # лимит 500m (503 от ingress), память ~385Mi. Лимит CPU поднят до 1 ядра,
+  # request — на уровне «нормальной» нагрузки, чтобы HPA по CPU имел запас.
   resources:
     requests:
-      cpu: 100m
-      memory: 128Mi
+      cpu: 250m
+      memory: 400Mi
     limits:
-      cpu: 500m
-      memory: 512Mi
-  # uWSGI-процессов на под
+      cpu: 1000m
+      memory: 640Mi
+  # uWSGI-процессов на под. 8 процессов под нагрузкой не влезают в 640Mi
+  # (OOMKilled, ~90Mi на процесс), поэтому 4, а рост нагрузки закрывает HPA
+  # (Часть 3) — больше подов, а не больше процессов в поде.
   uwsgiProcesses: 4
+  probes:
+    timeoutSeconds: 5
+    readinessFailureThreshold: 3
+    # liveness терпимее: перезапуск пода под нагрузкой только усугубляет
+    livenessFailureThreshold: 6
   podAnnotations: {}
   nodeSelector: {}
   tolerations: []
