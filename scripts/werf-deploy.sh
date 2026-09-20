@@ -9,8 +9,11 @@
 # Vault (scripts/werf-registry-login.sh).
 #
 # На Windows werf запускается в контейнере registry.werf.io/werf/werf
-# (нативный werf.exe требует привилегии на symlink), с docker-сокетом хоста и в
-# сети minikube — так registry-аддон доступен как 192.168.49.2:5000.
+# (нативный werf.exe требует привилегии на symlink) с Buildah-backend'ом:
+# сборка и push идут внутри контейнера, docker-демон хоста не нужен.
+# Контейнер делит сетевой namespace с узлом minikube (--network container:minikube),
+# поэтому registry-аддон доступен как localhost:5000 — то же имя, по которому
+# образ тянет kubelet (registry-proxy аддона), а API-сервер — как localhost:8443.
 # На Linux/macOS с нативным werf: WERF_NATIVE=1 scripts/werf-deploy.sh
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -44,24 +47,11 @@ fi
 # config пробрасываем, чтобы токен из Vault попал в werf
 DOCKER_CFG="$(mktemp -d)"
 trap 'rm -rf "$SECRETS_TMP" "$DOCKER_CFG"' EXIT
-WERF_BIN="docker run --rm --network minikube --user 0:0 --entrypoint werf \
-  -v $DOCKER_CFG:/root/.docker $WERF_IMAGE" \
-  source "$ROOT_DIR/scripts/werf-registry-login.sh"
+WERF_BIN="docker run --rm --network container:minikube --entrypoint werf   -v $DOCKER_CFG:/root/.docker $WERF_IMAGE"   source "$ROOT_DIR/scripts/werf-registry-login.sh"
 
-# kubeconfig minikube указывает на 127.0.0.1:<порт docker>; из контейнера в сети
-# minikube API-сервер доступен по IP узла
-KUBECONFIG_B64="$(kubectl config view --flatten --minify   | sed -E 's|server: https://127\.0\.0\.1:[0-9]+|server: https://192.168.49.2:8443|' | base64 -w0)"
+# kubeconfig minikube указывает на 127.0.0.1:<порт docker>; из сетевого
+# namespace узла API-сервер доступен на localhost:8443
+KUBECONFIG_B64="$(kubectl config view --flatten --minify   | sed -E 's|server: https://127\.0\.0\.1:[0-9]+|server: https://localhost:8443|' | base64 -w0)"
 
 echo "==> werf converge ($WERF_REPO -> $NAMESPACE/$RELEASE)"
-MSYS_NO_PATHCONV=1 docker run --rm --network minikube --user 0:0 --entrypoint werf \
-  -e WERF_BUILDAH_MODE=docker \
-  -e WERF_PLATFORM=linux/amd64 \
-  -e WERF_INSECURE_REGISTRY=1 \
-  -e WERF_REPO="$WERF_REPO" \
-  -e WERF_NAMESPACE="$NAMESPACE" \
-  -e WERF_RELEASE="$RELEASE" \
-  -e WERF_KUBE_CONFIG_BASE64="$KUBECONFIG_B64" \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  -v "$DOCKER_CFG:/root/.docker" \
-  -v "$(pwd -W 2>/dev/null || pwd):/app" -w /app \
-  "$WERF_IMAGE" converge --values ".helm/$(basename "$SECRETS_TMP")" "$@"
+MSYS_NO_PATHCONV=1 docker run --rm --privileged --network container:minikube --entrypoint werf   -e WERF_PLATFORM=linux/amd64   -e WERF_INSECURE_REGISTRY=1   -e WERF_REPO="$WERF_REPO"   -e WERF_NAMESPACE="$NAMESPACE"   -e WERF_RELEASE="$RELEASE"   -e WERF_KUBE_CONFIG_BASE64="$KUBECONFIG_B64"   -v "$DOCKER_CFG:/root/.docker"   -v werf-home:/root/.werf   -v "$(pwd -W 2>/dev/null || pwd):/app" -w /app   "$WERF_IMAGE" converge --values ".helm/$(basename "$SECRETS_TMP")" "$@"
