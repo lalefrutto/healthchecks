@@ -11,4 +11,6 @@ scripts
 werf.yaml
 werf-giterminism.yaml
 .releaserc.json
+# CHANGELOG.md нужен: из него settings.py читает VERSION
 *.md
+!CHANGELOG.md
