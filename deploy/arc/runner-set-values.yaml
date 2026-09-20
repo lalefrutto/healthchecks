@@ -1,0 +1,35 @@
+# Values для gha-runner-scale-set — набор self-hosted runner'ов для репозитория.
+# Имя релиза = метка для `runs-on` в workflow (minikube-runners).
+#
+#   helm upgrade --install minikube-runners oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
+#     -n arc-runners --create-namespace -f deploy/arc/runner-set-values.yaml \
+#     --set githubConfigSecret.github_token=<PAT со scope repo>
+#
+# Токен в values не хранится — передаётся через --set (scripts/deploy-arc.sh).
+githubConfigUrl: https://github.com/lalefrutto/healthchecks
+
+# 0 в простое: под runner'а создаётся только под job и удаляется после
+minRunners: 0
+maxRunners: 2
+
+# Docker в runner'е не нужен: образ собирает GitHub-hosted job, здесь — только
+# helm/kubectl. Без dind под легче и не требует privileged.
+containerMode:
+  type: ""
+
+template:
+  spec:
+    # ServiceAccount с правами на namespace healthchecks (deploy/arc/rbac.yaml),
+    # чтобы kubectl/helm в job'е работали через in-cluster конфиг
+    serviceAccountName: minikube-runner
+    containers:
+      - name: runner
+        image: ghcr.io/actions/actions-runner:latest
+        command: ["/home/runner/run.sh"]
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: "1"
+            memory: 1Gi

@@ -22,3 +22,34 @@
 
 Проверка: `gh run list --workflow release.yml`, `gh release list`,
 `docker manifest inspect ghcr.io/lalefrutto/healthchecks:vX.Y.Z`.
+
+## Часть 2 — self-hosted runner в кластере (ARC)
+
+Actions Runner Controller ставится двумя чартами из GHCR
+([deploy/arc](../arc/), `scripts/deploy-arc.sh`):
+
+1. `gha-runner-scale-set-controller` → namespace `arc-systems` (контроллер + listener,
+   который держит long-poll к GitHub и просит контроллер создать под под каждый job);
+2. `gha-runner-scale-set` → namespace `arc-runners`, релиз **`minikube-runners`** —
+   это имя и есть метка для `runs-on`. Регистрация в репозитории по PAT
+   (scope `repo`), токен передаётся через `--set`, в values не хранится.
+   `minRunners: 0` — в простое подов нет, на job поднимается эфемерный
+   runner и удаляется после.
+
+Runner работает **внутри minikube**, поэтому kubeconfig ему не нужен:
+[rbac.yaml](../arc/rbac.yaml) даёт его ServiceAccount роль `admin` в namespace
+`healthchecks` (+ ClusterIssuer/Certificate/PV для чарта). Docker в runner'е
+не нужен (образ собирает GitHub-hosted job), `containerMode` пустой.
+
+Секреты/переменные репозитория для job'а `deploy` (через `gh`):
+
+```sh
+gh secret set VAULT_ROLE_ID  --body "$VAULT_ROLE_ID"
+gh secret set VAULT_SECRET_ID --body "$VAULT_SECRET_ID"
+gh variable set VAULT_ADDR --body http://vault.vault.svc.cluster.local:8200   # Vault изнутри кластера
+gh variable set DEPLOY_ENABLED --body true
+```
+
+Проверка: `kubectl -n arc-systems get pods` (listener), во время job'а —
+`kubectl -n arc-runners get pods` (эфемерный runner), в GitHub: Settings →
+Actions → Runners → «minikube-runners», в логе job'а `deploy` — `Runner name: minikube-runners-…`.

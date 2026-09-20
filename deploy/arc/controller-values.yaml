@@ -1,0 +1,11 @@
+# Values для gha-runner-scale-set-controller (Actions Runner Controller, ARC).
+#   helm upgrade --install arc oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set-controller \
+#     -n arc-systems --create-namespace -f deploy/arc/controller-values.yaml
+replicaCount: 1
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi

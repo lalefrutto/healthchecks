@@ -1,0 +1,50 @@
+# ServiceAccount для подов runner'а и права на деплой чарта healthchecks.
+# Runner работает в кластере, поэтому kubeconfig ему не нужен — kubectl/helm
+# используют токен этого ServiceAccount.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: minikube-runner
+  namespace: arc-runners
+---
+# Полные права только в namespace приложения (чарт создаёт Deployment/Job/
+# Secret/Ingress/HPA/VPA и т.д.)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: minikube-runner-healthchecks-admin
+  namespace: healthchecks
+subjects:
+  - kind: ServiceAccount
+    name: minikube-runner
+    namespace: arc-runners
+roleRef:
+  kind: ClusterRole
+  name: admin
+  apiGroup: rbac.authorization.k8s.io
+---
+# Cluster-scoped ресурсы чарта: ClusterIssuer и Certificate в namespace cert-manager
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: minikube-runner-cert-manager
+rules:
+  - apiGroups: ["cert-manager.io"]
+    resources: ["clusterissuers", "certificates"]
+    verbs: ["*"]
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: minikube-runner-cert-manager
+subjects:
+  - kind: ServiceAccount
+    name: minikube-runner
+    namespace: arc-runners
+roleRef:
+  kind: ClusterRole
+  name: minikube-runner-cert-manager
+  apiGroup: rbac.authorization.k8s.io
