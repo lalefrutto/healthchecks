@@ -48,12 +48,13 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
-Образ: под werf — global.werf.image.healthchecks (werf кладёт service values и
-в global), иначе global.image.repository:tag.
+Образ: под werf — global.werf.images.healthchecks.ref_tag (werf кладёт
+информацию о собранных образах в global, видно всем subchart'ам),
+иначе global.image.repository:tag.
 */}}
 {{- define "flower.image" -}}
-{{- if and .Values.global.werf .Values.global.werf.image .Values.global.werf.image.healthchecks }}
-{{- .Values.global.werf.image.healthchecks }}
+{{- if and .Values.global.werf .Values.global.werf.images .Values.global.werf.images.healthchecks }}
+{{- .Values.global.werf.images.healthchecks.ref_tag }}
 {{- else }}
 {{- printf "%s:%s" .Values.global.image.repository .Values.global.image.tag }}
 {{- end }}

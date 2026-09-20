@@ -17,7 +17,7 @@ docker/Dockerfile      # исходники образа
 ```
 
 Образ в шаблонах: `{{ .Values.werf.image.healthchecks }}` (в subchart'ах —
-`global.werf.image.healthchecks`) — werf подставляет полное имя с
+`global.werf.images.healthchecks.ref_tag`) — werf подставляет полное имя с
 content-based тегом; без werf (helm/CI) используется `global.image.*`.
 
 werf читает только **закоммиченные** файлы (giterminism): перед `converge`

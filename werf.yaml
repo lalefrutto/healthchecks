@@ -10,9 +10,9 @@
 #     charts/          — subchart'ы
 #   docker/Dockerfile  — исходники образа
 #
-# Образ приложения в шаблонах: {{ .Values.werf.image.healthchecks }} (или
-# global.werf.image.healthchecks в subchart'ах) — werf подставляет полное имя
-# с content-based тегом; fallback на global.image.* оставлен для helm/CI.
+# Образ приложения в шаблонах: {{ .Values.werf.image.healthchecks }} (в
+# subchart'ах — global.werf.images.healthchecks.ref_tag) — werf подставляет
+# полное имя с content-based тегом; fallback на global.image.* оставлен для helm/CI.
 project: healthchecks
 configVersion: 1
 
