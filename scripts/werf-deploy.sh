@@ -43,6 +43,8 @@ if [ "${WERF_NATIVE:-0}" = "1" ]; then
   exit 0
 fi
 
+# WERF_SYNCHRONIZATION=:local — локальные блокировки вместо synchronization.werf.io
+# (один пользователь, из netns узла внешний сервис недоступен)
 # Контейнерный werf: логинимся его же бинарём внутри контейнера, docker
 # config пробрасываем, чтобы токен из Vault попал в werf
 DOCKER_CFG="$(mktemp -d)"
@@ -54,4 +56,4 @@ WERF_BIN="docker run --rm --network container:minikube --entrypoint werf   -v $D
 KUBECONFIG_B64="$(kubectl config view --flatten --minify   | sed -E 's|server: https://127\.0\.0\.1:[0-9]+|server: https://127.0.0.1:8443|' | base64 -w0)"
 
 echo "==> werf converge ($WERF_REPO -> $NAMESPACE/$RELEASE)"
-MSYS_NO_PATHCONV=1 docker run --rm --privileged --network container:minikube --entrypoint werf   -e WERF_PLATFORM=linux/amd64   -e WERF_INSECURE_REGISTRY=1   -e WERF_REPO="$WERF_REPO"   -e WERF_NAMESPACE="$NAMESPACE"   -e WERF_RELEASE="$RELEASE"   -e WERF_KUBE_CONFIG_BASE64="$KUBECONFIG_B64"   -v "$DOCKER_CFG:/root/.docker"   -v werf-home:/root/.werf   -v "$(pwd -W 2>/dev/null || pwd):/app" -w /app   "$WERF_IMAGE" converge --values ".helm/$(basename "$SECRETS_TMP")" "$@"
+MSYS_NO_PATHCONV=1 docker run --rm --privileged --network container:minikube --entrypoint werf   -e WERF_PLATFORM=linux/amd64   -e WERF_INSECURE_REGISTRY=1   -e WERF_SYNCHRONIZATION=:local   -e WERF_REPO="$WERF_REPO"   -e WERF_NAMESPACE="$NAMESPACE"   -e WERF_RELEASE="$RELEASE"   -e WERF_KUBE_CONFIG_BASE64="$KUBECONFIG_B64"   -v "$DOCKER_CFG:/root/.docker"   -v werf-home:/root/.werf   -v "$(pwd -W 2>/dev/null || pwd):/app" -w /app   "$WERF_IMAGE" converge --values ".helm/$(basename "$SECRETS_TMP")" "$@"
