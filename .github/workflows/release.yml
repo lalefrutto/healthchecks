@@ -124,11 +124,13 @@ jobs:
       - name: Install vals, vault CLI, helm-secrets
         run: |
           set -euo pipefail
-          curl -fsSL https://github.com/helmfile/vals/releases/download/v0.41.2/vals_0.41.2_linux_amd64.tar.gz | tar xz -C /usr/local/bin vals
+          # Runner в поде работает не под root — ставим в пользовательский каталог
+          BIN="$HOME/.local/bin"; mkdir -p "$BIN"; echo "$BIN" >> "$GITHUB_PATH"
+          curl -fsSL https://github.com/helmfile/vals/releases/download/v0.41.2/vals_0.41.2_linux_amd64.tar.gz | tar xz -C "$BIN" vals
           curl -fsSL https://releases.hashicorp.com/vault/1.18.5/vault_1.18.5_linux_amd64.zip -o /tmp/vault.zip
-          unzip -o -q /tmp/vault.zip -d /usr/local/bin
+          unzip -o -q /tmp/vault.zip -d "$BIN"
           helm plugin install https://github.com/jkroepke/helm-secrets --version v4.7.7
-          vals version && vault version && helm secrets --version
+          "$BIN/vals" version && "$BIN/vault" version && helm secrets --version
 
       - name: Deploy with helm-secrets (secrets from Vault)
         run: |
