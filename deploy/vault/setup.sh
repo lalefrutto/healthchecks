@@ -6,7 +6,7 @@
 #   1. vault operator init (один раз) -> ключ и root-токен в deploy/vault/.vault-keys.json
 #   2. unseal
 #   3. KV v2 secrets engine на пути secret/
-#   4. секреты: secret/healthchecks, secret/rabbitmq, secret/flower, secret/redis, secret/mongodb, secret/minio (генерируются, если ещё нет)
+#   4. секреты: secret/healthchecks, secret/rabbitmq, secret/flower, secret/redis, secret/mongodb, secret/minio, secret/registry (генерируются, если ещё нет)
 #   5. policies из deploy/vault/policies/*.hcl (по одной на компонент)
 #   6. AppRole healthchecks со всеми этими policy -> ROLE_ID / SECRET_ID в .env
 #
@@ -103,6 +103,14 @@ ensure_secret secret/minio \
   root_password="$(rand_secret 32)" \
   access_key="healthchecks" \
   secret_key="$(rand_secret 40)"
+
+# Container registry для werf (Задание 9). Локально — registry-аддон minikube
+# без авторизации (username/password пустые); для GHCR/Harbor положить сюда
+# реальные логин и токен: vault kv put secret/registry url=ghcr.io/<user>/<repo> username=... password=...
+ensure_secret secret/registry \
+  url="192.168.49.2:5000/healthchecks" \
+  username="" \
+  password=""
 
 # --- 5. policies -----------------------------------------------------------
 POLICIES=""

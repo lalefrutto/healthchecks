@@ -1,0 +1,7 @@
+# Исключения из giterminism werf (по умолчанию читаются только закоммиченные файлы).
+giterminismConfigVersion: 1
+helm:
+  # Временный values-файл с секретами, который vals разворачивает из
+  # .helm/secrets.yaml перед converge (scripts/werf-deploy.sh); в git не попадает
+  allowUncommittedFiles:
+    - .helm/.secrets.*.yaml

@@ -19,3 +19,6 @@ deploy/vault/.vault-keys.json
 
 # Locust
 charts/locust-test/files/__pycache__/
+
+# werf: временные values с секретами из Vault
+.helm/.secrets.*.yaml
