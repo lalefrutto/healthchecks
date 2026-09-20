@@ -17,6 +17,8 @@ urlpatterns = [
     path(f"{prefix}admin/", admin.site.urls),
     path(prefix, include("hc.accounts.urls")),
     path(prefix, include("hc.api.urls")),
+    # Celery-задачи (Задание 3): POST api/v3/tasks/<name>/, GET api/v3/tasks/result/<id>/
+    path(f"{prefix}api/v3/tasks/", include("hc.mq.urls")),
     path(prefix, include("hc.front.urls")),
     path(prefix, include("hc.payments.urls")),
     path(prefix, include("hc.integrations.apprise.urls")),

@@ -48,3 +48,34 @@ python -m hc.mq.producer weather --latitude 55.79 --longitude 49.11
 
 Проверить состояние через Management API (`https://rabbitmq.local`):
 `/api/exchanges/%2F/healthchecks.tasks`, `/api/queues/%2F/api-results`.
+
+## Celery (Части 3–4)
+
+Те же задачи обёрнуты в Celery ([celery_tasks.py](celery_tasks.py)): `hc.mq.cat_fact`,
+`hc.mq.weather`. Конфигурация — [hc/celeryconfig.py](../celeryconfig.py)
+(брокер RabbitMQ из `CELERY_BROKER_URL`, результаты в Postgres через
+`django-celery-results`, очередь `api-tasks`, `acks_late`). Воркер и Flower
+разворачиваются subchart'ами чарта healthchecks.
+
+### API-роуты ([views.py](views.py), [urls.py](urls.py))
+
+Авторизация — как у остального API healthchecks: заголовок `X-Api-Key`
+(ключ проекта из Settings → API access).
+
+```sh
+# поставить задачу (rw-ключ), аргументы — JSON в теле
+curl -k -X POST https://healthchecks.local/api/v3/tasks/weather/ \
+  -H "X-Api-Key: $API_KEY" -H "Content-Type: application/json" \
+  -d '{"latitude": 55.79, "longitude": 49.11}'
+# -> 202 {"task_id": "…", "task": "hc.mq.weather", "state": "PENDING"}
+
+curl -k -X POST https://healthchecks.local/api/v3/tasks/cat_fact/ -H "X-Api-Key: $API_KEY"
+
+# состояние / результат по AsyncResult (rw- или ro-ключ)
+curl -k https://healthchecks.local/api/v3/tasks/result/<task_id>/ -H "X-Api-Key: $API_KEY"
+# -> {"task_id": "…", "state": "SUCCESS", "ready": true, "result": {"temperature_c": 14.2, …}}
+# -> {"task_id": "…", "state": "FAILURE", "ready": true, "error": "…"} при ошибке
+```
+
+Тесты: `./manage.py test hc.mq` (в кластере —
+`kubectl -n healthchecks exec deploy/healthchecks-web -- ./manage.py test hc.mq`).
