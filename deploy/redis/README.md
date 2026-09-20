@@ -49,3 +49,31 @@ bash scripts/deploy.sh           # приложение: подхватывае�
 | `REDIS_HOST`, `REDIS_PORT`, `REDIS_DB` | ConfigMap |
 | `REDIS_PASSWORD` | Secret `redis` (релиз чарта Redis) |
 | `REDIS_URL` | `redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/$(REDIS_DB)` — собирается Kubernetes'ом |
+
+## Часть 2 — CacheManager и cache-aside
+
+[hc/lib/cache.py](../../hc/lib/cache.py) — `CacheManager` поверх `redis-py`:
+
+- подключение из окружения (`CacheManager.from_env()`): `REDIS_URL`, либо
+  `REDIS_HOST`/`REDIS_PORT`/`REDIS_DB`/`REDIS_PASSWORD`;
+- `get`, `set(key, value, ttl)`, `exists`, `delete`, `ttl`, `get_or_set(key, producer, ttl)`;
+  значения — JSON, ключи с префиксом `hc:`;
+- TTL: по умолчанию `CACHE_DEFAULT_TTL` (300 c), `ttl=0` — без истечения;
+- Redis недоступен → всегда «промах» + предупреждение в лог, приложение работает.
+
+Где применяется (паттерн **cache-aside**: сначала кэш, при промахе — источник, результат в кэш):
+
+| Что | Ключ | TTL | Файл |
+|---|---|---|---|
+| результаты внешних API (Celery-задачи) | `hc:api:weather:<lat>:<lon>`, `hc:api:cat_fact` | `CACHE_TTL_API` = 300 c | [hc/mq/celery_tasks.py](../../hc/mq/celery_tasks.py) |
+| SQL: готовый `AsyncResult` (django-celery-results) | `hc:task_result:<task_id>` | `CACHE_TTL_RESULT` = 3600 c | [hc/mq/views.py](../../hc/mq/views.py) |
+| SQL: агрегат `GROUP BY task_name, status` — `GET /api/v3/tasks/stats/` | `hc:task_stats` | `CACHE_TTL_STATS` = 30 c | [hc/mq/views.py](../../hc/mq/views.py) |
+
+Ответ, пришедший из кэша, помечен полем `"cached": true`. Посмотреть ключи:
+
+```sh
+kubectl -n healthchecks exec redis-0 -- redis-cli -a "$PW" --no-auth-warning --scan --pattern 'hc:*'
+kubectl -n healthchecks exec redis-0 -- redis-cli -a "$PW" --no-auth-warning ttl hc:task_stats
+```
+
+Тесты: `./manage.py test hc.lib.tests.test_cache hc.mq`.

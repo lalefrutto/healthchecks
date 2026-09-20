@@ -2,10 +2,25 @@ from __future__ import annotations
 
 from unittest.mock import Mock, patch
 
+from django_celery_results.models import TaskResult
+
+from hc.lib.cache import CacheManager
+from hc.lib.tests.test_cache import FakeRedis
 from hc.test import BaseTestCase
 
 
-class RunTaskTestCase(BaseTestCase):
+class FakeCacheMixin:
+    """Подменяет CacheManager в views на in-memory, чтобы тесты не ходили в Redis."""
+
+    def setUp(self) -> None:
+        super().setUp()  # type: ignore[misc]
+        self.cache = CacheManager(FakeRedis(), prefix="test")  # type: ignore[arg-type]
+        patcher = patch("hc.mq.views.get_cache", return_value=self.cache)
+        patcher.start()
+        self.addCleanup(patcher.stop)  # type: ignore[attr-defined]
+
+
+class RunTaskTestCase(FakeCacheMixin, BaseTestCase):
     url = "/api/v3/tasks/weather/"
 
     @patch("hc.mq.views.celery_tasks.weather.apply_async")
@@ -55,7 +70,7 @@ class RunTaskTestCase(BaseTestCase):
         self.assertEqual(r.status_code, 405)
 
 
-class TaskResultTestCase(BaseTestCase):
+class TaskResultTestCase(FakeCacheMixin, BaseTestCase):
     url = "/api/v3/tasks/result/abc-123/"
 
     @patch("hc.mq.views.AsyncResult")
@@ -112,6 +127,83 @@ class TaskResultTestCase(BaseTestCase):
             )
             r = self.client.get(self.url, HTTP_X_API_KEY="R" * 32)
         self.assertEqual(r.status_code, 200)
+
+    def test_it_requires_api_key(self) -> None:
+        r = self.client.get(self.url)
+        self.assertEqual(r.status_code, 401)
+
+
+class TaskResultCacheTestCase(FakeCacheMixin, BaseTestCase):
+    url = "/api/v3/tasks/result/abc-123/"
+
+    @patch("hc.mq.views.AsyncResult")
+    def test_ready_result_is_cached(self, mock_result: Mock) -> None:
+        mock_result.return_value = Mock(
+            state="SUCCESS",
+            ready=lambda: True,
+            successful=lambda: True,
+            result={"x": 1},
+        )
+        r = self.client.get(self.url, HTTP_X_API_KEY="X" * 32)
+        self.assertNotIn("cached", r.json())
+        self.assertTrue(self.cache.exists("task_result:abc-123"))
+
+        # второй запрос — из кэша, AsyncResult больше не спрашиваем
+        mock_result.reset_mock()
+        r = self.client.get(self.url, HTTP_X_API_KEY="X" * 32)
+        self.assertTrue(r.json()["cached"])
+        self.assertEqual(r.json()["result"], {"x": 1})
+        mock_result.assert_not_called()
+
+    @patch("hc.mq.views.AsyncResult")
+    def test_pending_result_is_not_cached(self, mock_result: Mock) -> None:
+        mock_result.return_value = Mock(
+            state="PENDING",
+            ready=lambda: False,
+            successful=lambda: False,
+            failed=lambda: False,
+        )
+        self.client.get(self.url, HTTP_X_API_KEY="X" * 32)
+        self.assertFalse(self.cache.exists("task_result:abc-123"))
+
+
+class TaskStatsTestCase(FakeCacheMixin, BaseTestCase):
+    url = "/api/v3/tasks/stats/"
+
+    def setUp(self) -> None:
+        super().setUp()
+        TaskResult.objects.create(
+            task_id="1", task_name="hc.mq.weather", status="SUCCESS"
+        )
+        TaskResult.objects.create(
+            task_id="2", task_name="hc.mq.weather", status="SUCCESS"
+        )
+        TaskResult.objects.create(
+            task_id="3", task_name="hc.mq.cat_fact", status="FAILURE"
+        )
+
+    def test_it_aggregates_and_caches(self) -> None:
+        r = self.client.get(self.url, HTTP_X_API_KEY="X" * 32)
+        self.assertEqual(r.status_code, 200)
+        doc = r.json()
+        self.assertEqual(doc["total"], 3)
+        self.assertEqual(doc["tasks"]["hc.mq.weather"], {"SUCCESS": 2})
+        self.assertEqual(doc["tasks"]["hc.mq.cat_fact"], {"FAILURE": 1})
+        self.assertNotIn("cached", doc)
+
+        # новая строка в БД не видна, пока жив кэш (cache-aside с TTL)
+        TaskResult.objects.create(
+            task_id="4", task_name="hc.mq.cat_fact", status="SUCCESS"
+        )
+        with patch("hc.mq.views._task_stats") as mock_stats:
+            doc = self.client.get(self.url, HTTP_X_API_KEY="X" * 32).json()
+        mock_stats.assert_not_called()
+        self.assertTrue(doc["cached"])
+        self.assertEqual(doc["total"], 3)
+
+        self.cache.delete("task_stats")
+        doc = self.client.get(self.url, HTTP_X_API_KEY="X" * 32).json()
+        self.assertEqual(doc["total"], 4)
 
     def test_it_requires_api_key(self) -> None:
         r = self.client.get(self.url)

@@ -77,5 +77,9 @@ curl -k https://healthchecks.local/api/v3/tasks/result/<task_id>/ -H "X-Api-Key:
 # -> {"task_id": "…", "state": "FAILURE", "ready": true, "error": "…"} при ошибке
 ```
 
+`GET /api/v3/tasks/stats/` — количество задач по имени и статусу (агрегирующий
+SQL по `django_celery_results`). Ответы `result/` (готовые) и `stats/` кэшируются
+в Redis, результаты внешних API — тоже; см. [deploy/redis/README.md](../../deploy/redis/README.md).
+
 Тесты: `./manage.py test hc.mq` (в кластере —
 `kubectl -n healthchecks exec deploy/healthchecks-web -- ./manage.py test hc.mq`).
