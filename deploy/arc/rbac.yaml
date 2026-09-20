@@ -23,6 +23,34 @@ roleRef:
   name: admin
   apiGroup: rbac.authorization.k8s.io
 ---
+# Встроенная роль admin не покрывает CRD — VPA и LocustTest из наших чартов
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: minikube-runner-crds
+  namespace: healthchecks
+rules:
+  - apiGroups: ["autoscaling.k8s.io"]
+    resources: ["verticalpodautoscalers"]
+    verbs: ["*"]
+  - apiGroups: ["locust.io"]
+    resources: ["locusttests"]
+    verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: minikube-runner-crds
+  namespace: healthchecks
+subjects:
+  - kind: ServiceAccount
+    name: minikube-runner
+    namespace: arc-runners
+roleRef:
+  kind: Role
+  name: minikube-runner-crds
+  apiGroup: rbac.authorization.k8s.io
+---
 # Cluster-scoped ресурсы чарта: ClusterIssuer и Certificate в namespace cert-manager
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
