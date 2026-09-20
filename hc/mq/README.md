@@ -81,5 +81,8 @@ curl -k https://healthchecks.local/api/v3/tasks/result/<task_id>/ -H "X-Api-Key:
 SQL по `django_celery_results`). Ответы `result/` (готовые) и `stats/` кэшируются
 в Redis, результаты внешних API — тоже; см. [deploy/redis/README.md](../../deploy/redis/README.md).
 
+`GET /api/v3/tasks/history/` — журнал событий задач (enqueued/started/succeeded/failed)
+из MongoDB; см. [deploy/mongodb/README.md](../../deploy/mongodb/README.md).
+
 Тесты: `./manage.py test hc.mq` (в кластере —
 `kubectl -n healthchecks exec deploy/healthchecks-web -- ./manage.py test hc.mq`).

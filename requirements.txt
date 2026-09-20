@@ -13,6 +13,7 @@ pika==1.4.4
 pycurl==7.47.0
 pydantic==2.13.5
 PyJWT[crypto]==2.13.0
+pymongo==4.18.1
 pyotp==2.10.0
 redis==8.1.0
 segno==1.6.6

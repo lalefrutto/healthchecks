@@ -3,6 +3,7 @@
     POST /api/v3/tasks/<name>/            -> {"task_id": ..., "task": ..., "state": "PENDING"}
     GET  /api/v3/tasks/result/<task_id>/  -> состояние AsyncResult и результат, когда готов
     GET  /api/v3/tasks/stats/             -> количество задач по статусам (SQL, кэшируется)
+    GET  /api/v3/tasks/history/           -> журнал событий задач из MongoDB (?task_id=&limit=)
 
 Кэширование (Задание 4, cache-aside через hc.lib.cache.CacheManager):
   * завершённый AsyncResult неизменяем — ответ кэшируется, повторные GET не
@@ -28,6 +29,7 @@ from django_celery_results.models import TaskResult
 from hc.api.decorators import ApiRequest, authorize, authorize_read, cors, error
 from hc.celery import app as celery_app
 from hc.lib.cache import get_cache
+from hc.lib.mongo import get_event_log
 from hc.mq import celery_tasks
 
 RESULT_CACHE_TTL = int(os.getenv("CACHE_TTL_RESULT", "3600"))
@@ -51,6 +53,13 @@ def run_task(request: ApiRequest, name: str) -> HttpResponse:
 
     kwargs = {k: v for k, v in request.json.items() if k != "api_key"}
     result = task.apply_async(kwargs=kwargs)
+    get_event_log().record(
+        "enqueued",
+        result.id,
+        task=task.name,
+        kwargs=kwargs,
+        project=str(request.project.code),
+    )
     return JsonResponse(
         {"task_id": result.id, "task": task.name, "state": result.state},
         status=202,
@@ -115,3 +124,22 @@ def task_stats(request: ApiRequest) -> HttpResponse:
     payload = _task_stats()
     cache.set("task_stats", payload, ttl=STATS_CACHE_TTL)
     return JsonResponse(payload)
+
+
+@cors("GET")
+@csrf_exempt
+@require_GET
+@authorize_read
+def task_history(request: ApiRequest) -> HttpResponse:
+    try:
+        limit = min(max(int(request.GET.get("limit", "50")), 1), 500)
+    except ValueError:
+        return error("limit must be an integer")
+    task_id = request.GET.get("task_id") or None
+    log = get_event_log()
+    return JsonResponse(
+        {
+            "available": log.available,
+            "events": log.recent(limit=limit, task_id=task_id),
+        }
+    )

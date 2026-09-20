@@ -5,19 +5,28 @@ from unittest.mock import Mock, patch
 from django_celery_results.models import TaskResult
 
 from hc.lib.cache import CacheManager
+from hc.lib.mongo import EventLog
 from hc.lib.tests.test_cache import FakeRedis
+from hc.lib.tests.test_mongo import FakeCollection
 from hc.test import BaseTestCase
 
 
 class FakeCacheMixin:
-    """Подменяет CacheManager в views на in-memory, чтобы тесты не ходили в Redis."""
+    """Подменяет CacheManager и EventLog в views на in-memory, чтобы тесты
+    не ходили в Redis и MongoDB."""
 
     def setUp(self) -> None:
         super().setUp()  # type: ignore[misc]
         self.cache = CacheManager(FakeRedis(), prefix="test")  # type: ignore[arg-type]
-        patcher = patch("hc.mq.views.get_cache", return_value=self.cache)
-        patcher.start()
-        self.addCleanup(patcher.stop)  # type: ignore[attr-defined]
+        self.events = FakeCollection()
+        self.event_log = EventLog(self.events)  # type: ignore[arg-type]
+        for target, value in (
+            ("hc.mq.views.get_cache", self.cache),
+            ("hc.mq.views.get_event_log", self.event_log),
+        ):
+            patcher = patch(target, return_value=value)
+            patcher.start()
+            self.addCleanup(patcher.stop)  # type: ignore[attr-defined]
 
 
 class RunTaskTestCase(FakeCacheMixin, BaseTestCase):
@@ -38,6 +47,14 @@ class RunTaskTestCase(FakeCacheMixin, BaseTestCase):
         mock_apply.assert_called_once_with(
             kwargs={"latitude": 55.79, "longitude": 49.11}
         )
+        # событие "enqueued" ушло в журнал MongoDB
+        self.assertEqual(len(self.events.docs), 1)
+        ev = self.events.docs[0]
+        self.assertEqual(ev["event"], "enqueued")
+        self.assertEqual(ev["task_id"], "abc-123")
+        self.assertEqual(ev["task"], "hc.mq.weather")
+        self.assertEqual(ev["kwargs"], {"latitude": 55.79, "longitude": 49.11})
+        self.assertEqual(ev["project"], str(self.project.code))
 
     @patch("hc.mq.views.celery_tasks.cat_fact.apply_async")
     def test_it_accepts_api_key_header(self, mock_apply: Mock) -> None:
@@ -204,6 +221,42 @@ class TaskStatsTestCase(FakeCacheMixin, BaseTestCase):
         self.cache.delete("task_stats")
         doc = self.client.get(self.url, HTTP_X_API_KEY="X" * 32).json()
         self.assertEqual(doc["total"], 4)
+
+    def test_it_requires_api_key(self) -> None:
+        r = self.client.get(self.url)
+        self.assertEqual(r.status_code, 401)
+
+
+class TaskHistoryTestCase(FakeCacheMixin, BaseTestCase):
+    url = "/api/v3/tasks/history/"
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.event_log.record("enqueued", "t1", task="hc.mq.weather")
+        self.event_log.record("succeeded", "t1", result={"x": 1})
+        self.event_log.record("enqueued", "t2", task="hc.mq.cat_fact")
+
+    def test_it_works(self) -> None:
+        r = self.client.get(self.url, HTTP_X_API_KEY="X" * 32)
+        self.assertEqual(r.status_code, 200)
+        doc = r.json()
+        self.assertTrue(doc["available"])
+        self.assertEqual([e["task_id"] for e in doc["events"]], ["t2", "t1", "t1"])
+        self.assertEqual(doc["events"][1]["result"], {"x": 1})
+
+    def test_it_filters_by_task_id(self) -> None:
+        r = self.client.get(self.url + "?task_id=t1", HTTP_X_API_KEY="X" * 32)
+        events = r.json()["events"]
+        self.assertEqual(len(events), 2)
+        self.assertTrue(all(e["task_id"] == "t1" for e in events))
+
+    def test_it_applies_limit(self) -> None:
+        r = self.client.get(self.url + "?limit=1", HTTP_X_API_KEY="X" * 32)
+        self.assertEqual(len(r.json()["events"]), 1)
+
+    def test_it_validates_limit(self) -> None:
+        r = self.client.get(self.url + "?limit=abc", HTTP_X_API_KEY="X" * 32)
+        self.assertEqual(r.status_code, 400)
 
     def test_it_requires_api_key(self) -> None:
         r = self.client.get(self.url)

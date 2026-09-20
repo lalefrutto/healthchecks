@@ -43,3 +43,34 @@ bash scripts/deploy.sh           # приложение: подхватывае�
 | `MONGODB_HOST`, `MONGODB_PORT`, `MONGODB_DB`, `MONGODB_USER` | ConfigMap |
 | `MONGODB_PASSWORD` | Secret `mongodb-custom-user-0-secret` (создаёт чарт MongoDB из values, ключ `CUSTOM_PASSWORD`) |
 | `MONGODB_URL` | `mongodb://$(MONGODB_USER):$(MONGODB_PASSWORD)@$(MONGODB_HOST):$(MONGODB_PORT)/$(MONGODB_DB)?authSource=$(MONGODB_DB)` |
+
+## Часть 2 — журнал событий задач в MongoDB
+
+[hc/lib/mongo.py](../../hc/lib/mongo.py) — `EventLog` поверх `pymongo`, коллекция
+`task_events` в БД `healthchecks`:
+
+- `record(event, task_id, **fields)` — документ `{event, task_id, ts, ...}`;
+  структура свободная (аргументы, результат, текст ошибки) — то, что неудобно
+  раскладывать по реляционной схеме Postgres;
+- `recent(limit, task_id=None)` — последние события, новые первыми;
+- индексы создаются при первой записи: `ts`, `(task_id, ts)` и **TTL-индекс**
+  (`MONGODB_EVENTS_RETENTION_DAYS`, по умолчанию 30 дней — MongoDB чистит старое сама);
+- MongoDB недоступна → событие теряется с предупреждением, приложение работает.
+
+Кто пишет:
+
+| Событие | Откуда | Поля |
+|---|---|---|
+| `enqueued` | `POST /api/v3/tasks/<name>/` ([hc/mq/views.py](../../hc/mq/views.py)) | `task`, `kwargs`, `project` |
+| `started` | сигнал Celery `task_prerun` ([hc/mq/celery_tasks.py](../../hc/mq/celery_tasks.py)) | `task`, `kwargs` |
+| `succeeded` | `task_postrun` | `task`, `runtime_ms`, `result` |
+| `failed` | `task_failure` | `task`, `error` |
+
+Кто читает: `GET /api/v3/tasks/history/?task_id=<id>&limit=<n>` (X-Api-Key) —
+и mongo-express (`healthchecks` → `task_events`).
+
+```sh
+curl -k "https://healthchecks.local/api/v3/tasks/history/?limit=5" -H "X-Api-Key: $API_KEY"
+```
+
+Тесты: `./manage.py test hc.lib.tests.test_mongo hc.mq`.
