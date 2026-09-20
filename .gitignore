@@ -13,3 +13,6 @@ CLAUDE.md
 # Локальные секреты (Vault unseal key / root token, AppRole creds)
 .env
 deploy/vault/.vault-keys.json
+
+# Результаты consumer (hc/mq)
+results/
