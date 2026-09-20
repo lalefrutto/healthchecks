@@ -1,12 +1,14 @@
-# healthchecks — Helm-чарт
+# healthchecks — Helm-чарт (`.helm/` werf-проекта)
 
 Оборачивает манифесты из `k8s/` (Задание 1) в чарт с настраиваемыми `values.yaml`.
 PostgreSQL, Celery-воркер и Flower вынесены в локальные subchart'ы (`charts/*`).
+С Задания 9 чарт лежит в `.helm/` — стандартном каталоге werf-проекта
+([werf.yaml](../werf.yaml)); для обычного `helm`/CI это тот же чарт по пути `.helm`.
 
 ## Структура
 
 ```
-charts/healthchecks/
+.helm/
 ├── Chart.yaml                  # метаданные, зависимость от subchart postgresql
 ├── values.yaml                 # все настраиваемые параметры (без секретов)
 ├── secrets.yaml                # ссылки ref+vault:// на секреты, разворачивает helm-secrets
@@ -70,16 +72,16 @@ helm-secrets/vals и делает `helm upgrade --install`. Команды ни�
 --set postgresql.auth.password=...`), иначе `required` в шаблонах остановит деплой.
 
 ```sh
-helm lint charts/healthchecks
-helm install healthchecks charts/healthchecks -n healthchecks --create-namespace --dry-run
-helm install healthchecks charts/healthchecks -n healthchecks --create-namespace --wait
+helm lint .helm
+helm install healthchecks .helm -n healthchecks --create-namespace --dry-run
+helm install healthchecks .helm -n healthchecks --create-namespace --wait
 ```
 
 Обновление (после пересборки образа или правки values) — миграции прогонит
 хук автоматически:
 
 ```sh
-helm upgrade healthchecks charts/healthchecks -n healthchecks --wait
+helm upgrade healthchecks .helm -n healthchecks --wait
 ```
 
 Удаление (PV/PVC с данными Postgres помечены `helm.sh/resource-policy: keep`

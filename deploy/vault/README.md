@@ -2,7 +2,7 @@
 
 Секреты приложения (Django `SECRET_KEY`, пароль Postgres) хранятся в HashiCorp
 Vault, а не в git. В values чарта лежат только ссылки `ref+vault://...`
-([charts/healthchecks/secrets.yaml](../../charts/healthchecks/secrets.yaml)),
+([.helm/secrets.yaml](../../.helm/secrets.yaml)),
 которые при деплое разворачивает `helm-secrets` с backend'ом `vals`.
 
 ```
@@ -103,6 +103,6 @@ bash scripts/deploy.sh
 
 - `vals` на Windows собирает путь AppRole-логина с `\` (`auth\approle\login`),
   поэтому `deploy.sh` логинится через `vault` CLI и отдаёт vals готовый токен.
-- `helm lint charts/healthchecks` предупреждает про пустые `secrets.secretKey`
+- `helm lint .helm` предупреждает про пустые `secrets.secretKey`
   и `postgresql.auth.password` — это ожидаемо: значения обязательны (`required`)
-  и приходят из `secrets.yaml`. Для чистого lint: `helm lint charts/healthchecks -f charts/healthchecks/secrets.yaml`.
+  и приходят из `secrets.yaml`. Для чистого lint: `helm lint .helm -f .helm/secrets.yaml`.

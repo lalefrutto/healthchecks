@@ -199,8 +199,14 @@ initContainers:
 {{- end }}
 
 {{/*
-Образ приложения.
+Образ приложения. При деплое через werf (werf converge) берётся
+.Values.werf.image.healthchecks — полное имя с content-based тегом,
+иначе (helm / CI) — global.image.repository:tag.
 */}}
 {{- define "healthchecks.image" -}}
+{{- if and .Values.werf .Values.werf.image .Values.werf.image.healthchecks }}
+{{- .Values.werf.image.healthchecks }}
+{{- else }}
 {{- printf "%s:%s" .Values.global.image.repository (default .Chart.AppVersion .Values.global.image.tag) }}
+{{- end }}
 {{- end }}

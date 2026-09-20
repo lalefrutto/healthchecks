@@ -141,10 +141,10 @@ jobs:
           export VAULT_TOKEN
           VAULT_TOKEN="$(vault write -field=token auth/approle/login role_id="$VAULT_ROLE_ID" secret_id="$VAULT_SECRET_ID")"
           export VAULT_AUTH_METHOD=token
-          helm secrets --backend vals upgrade --install healthchecks charts/healthchecks \
+          helm secrets --backend vals upgrade --install healthchecks .helm \
             --namespace healthchecks \
-            -f charts/healthchecks/values.yaml \
-            -f charts/healthchecks/secrets.yaml \
+            -f .helm/values.yaml \
+            -f .helm/secrets.yaml \
             --set global.image.repository="${IMAGE}" \
             --set global.image.tag="${{ needs.release.outputs.tag }}" \
             --set global.image.pullPolicy=IfNotPresent \

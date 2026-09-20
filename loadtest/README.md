@@ -58,7 +58,7 @@ uWSGI-воркера); дальше растёт только очередь и 
 ### Пиковое потребление и итоговые ресурсы web
 
 Пик при 200–300 пользователях: CPU ~550m, RAM ~380Mi (Postgres — до 500m).
-В [values.yaml](../charts/healthchecks/values.yaml):
+В [values.yaml](../.helm/values.yaml):
 
 ```yaml
 web:
@@ -69,7 +69,7 @@ web:
 
 ## Часть 3 — HPA и VPA
 
-### HPA ([templates/hpa.yaml](../charts/healthchecks/templates/hpa.yaml), `web.autoscaling.*`)
+### HPA ([templates/hpa.yaml](../.helm/templates/hpa.yaml), `web.autoscaling.*`)
 
 `autoscaling/v2`, метрика — CPU в процентах от `requests.cpu` (250m), цель 70%,
 1–4 реплики. `behavior`: scale-up без окна стабилизации (до +100% / +2 пода за 30 с),
@@ -87,7 +87,7 @@ SuccessfulRescale: New size: 1; reason: All metrics below target
 
 Под нагрузкой при 3 подах Locust показал 0.06% ошибок, avg 1.8 с (200 users).
 
-### VPA ([templates/vpa.yaml](../charts/healthchecks/templates/vpa.yaml), `vpa.*`)
+### VPA ([templates/vpa.yaml](../.helm/templates/vpa.yaml), `vpa.*`)
 
 VPA установлен чартом `fairwinds-stable/vpa` ([deploy/vpa/values.yaml](../deploy/vpa/values.yaml)),
 только recommender. Объект VPA — для **celery-worker** в режиме `Off`

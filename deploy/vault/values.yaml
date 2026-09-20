@@ -18,7 +18,7 @@ server:
       cpu: 500m
       memory: 512Mi
   # API + UI наружу через nginx-ingress; TLS выпускает cert-manager тем же
-  # CA-issuer'ом, что и для приложения (charts/healthchecks)
+  # CA-issuer'ом, что и для приложения (.helm)
   ingress:
     enabled: true
     ingressClassName: nginx

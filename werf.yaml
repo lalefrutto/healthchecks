@@ -1,0 +1,27 @@
+# werf-проект healthchecks (Задание 9).
+#
+# Структура:
+#   werf.yaml          — этот файл: проект и образы (собираются из docker/Dockerfile)
+#   .helm/             — Helm-чарт приложения (перенесён из charts/healthchecks)
+#     Chart.yaml       — зависимости-subchart'ы ("helm submodules"): postgresql, celery-worker, flower
+#     values.yaml      — глобальные values проекта (global.* видят все subchart'ы)
+#     secrets.yaml     — ссылки ref+vault://, разворачивает vals перед converge (scripts/werf-deploy.sh)
+#     templates/       — манифесты
+#     charts/          — subchart'ы
+#   docker/Dockerfile  — исходники образа
+#
+# Образ приложения в шаблонах: {{ .Values.werf.image.healthchecks }} (или
+# global.werf.image.healthchecks в subchart'ах) — werf подставляет полное имя
+# с content-based тегом; fallback на global.image.* оставлен для helm/CI.
+project: healthchecks
+configVersion: 1
+
+deploy:
+  # Один релиз/namespace на проект (можно переопределить флагами converge)
+  namespace: healthchecks
+  helmRelease: healthchecks
+
+---
+image: healthchecks
+dockerfile: docker/Dockerfile
+context: .

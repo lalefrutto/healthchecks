@@ -1,6 +1,6 @@
 # Default values for the celery-worker subchart.
 # Образ, параметры брокера и имена ресурсов приложения приходят из global.*
-# родительского чарта (charts/healthchecks/values.yaml).
+# родительского чарта (.helm/values.yaml).
 
 nameOverride: ""
 fullnameOverride: ""

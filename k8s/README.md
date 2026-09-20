@@ -1,7 +1,7 @@
 # healthchecks на Kubernetes (minikube)
 
 > Начиная с Задания 2 приложение разворачивается Helm-чартом
-> [charts/healthchecks](../charts/healthchecks/README.md). Манифесты ниже —
+> [.helm](../.helm/README.md). Манифесты ниже —
 > результат Задания 1, оставлены как справочник; в кластере их ресурсы заменены релизом чарта.
 
 ## Состав

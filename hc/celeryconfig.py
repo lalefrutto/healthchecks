@@ -2,7 +2,7 @@
 
 Значения берутся из переменных окружения — в Kubernetes они собираются
 из ConfigMap и нескольких Secret'ов (пароль брокера — из secret'а RabbitMQ,
-пароль БД — из secret'а Postgres), см. charts/healthchecks/templates/_helpers.tpl.
+пароль БД — из secret'а Postgres), см. .helm/templates/_helpers.tpl.
 """
 
 from __future__ import annotations
