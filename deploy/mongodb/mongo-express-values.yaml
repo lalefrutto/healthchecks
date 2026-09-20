@@ -1,0 +1,35 @@
+# Values для чарта cowboysysop/mongo-express — веб-UI для MongoDB.
+#   https://mongo-express.local  (строка "127.0.0.1 mongo-express.local" в hosts)
+
+mongodbServer: mongodb
+mongodbPort: 27017
+# Подключаемся под root, чтобы видеть все БД (пароль — из secrets)
+mongodbEnableAdmin: true
+mongodbAdminUsername: admin
+
+# Логин в UI (пароль — из secrets)
+basicAuthUsername: admin
+
+ingress:
+  enabled: true
+  ingressClassName: nginx
+  pathType: Prefix
+  annotations:
+    cert-manager.io/cluster-issuer: healthchecks-ca-issuer
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: mongo-express.local
+      paths:
+        - /
+  tls:
+    - secretName: mongo-express-tls
+      hosts:
+        - mongo-express.local
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 300m
+    memory: 256Mi

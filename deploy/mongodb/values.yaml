@@ -1,0 +1,36 @@
+# Values для чарта cloudpirates/mongodb (bitnami-образы отдают 403).
+# Официальный образ mongo:8, StatefulSet + PVC + headless Service.
+#
+#   scripts/deploy-mongodb.sh   (пароли — из Vault, см. secrets.yaml)
+
+replicaCount: 1
+
+auth:
+  enabled: true
+  rootUsername: admin
+  # rootPassword — из secrets.yaml (Vault secret/mongodb#root_password)
+
+# Пользователь приложения с правами только на свою БД
+customUsers:
+  - name: healthchecks
+    database: healthchecks
+    # password — из secrets.yaml (Vault secret/mongodb#password)
+    roles:
+      - readWrite
+
+service:
+  # LoadBalancer: снаружи кластера через minikube tunnel (127.0.0.1:27017)
+  type: LoadBalancer
+  port: 27017
+
+persistence:
+  enabled: true
+  size: 1Gi
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi

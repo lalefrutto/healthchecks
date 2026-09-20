@@ -86,6 +86,15 @@ env:
   - name: REDIS_URL
     value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/$(REDIS_DB)"
   {{- end }}
+  {{- if .Values.global.mongodb.enabled }}
+  - name: MONGODB_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: {{ .Values.global.mongodb.existingSecret }}
+        key: {{ .Values.global.mongodb.passwordKey }}
+  - name: MONGODB_URL
+    value: "mongodb://$(MONGODB_USER):$(MONGODB_PASSWORD)@$(MONGODB_HOST):$(MONGODB_PORT)/$(MONGODB_DB)?authSource=$(MONGODB_DB)"
+  {{- end }}
 {{- end }}
 
 {{- define "flower.secretName" -}}

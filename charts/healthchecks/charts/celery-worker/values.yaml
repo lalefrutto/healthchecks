@@ -58,3 +58,7 @@ global:
     enabled: true
     existingSecret: redis
     passwordKey: password
+  mongodb:
+    enabled: true
+    existingSecret: mongodb-custom-user-0-secret
+    passwordKey: CUSTOM_PASSWORD

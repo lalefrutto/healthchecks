@@ -54,9 +54,10 @@ bash deploy/vault/setup.sh
 4. секреты компонентов (генерируются один раз, повторный запуск их не трогает):
    `secret/healthchecks` (`SECRET_KEY`, `DB_PASSWORD`),
    `secret/rabbitmq` (`username`, `password`, `erlang_cookie`),
-   `secret/flower` (`basic_auth`), `secret/redis` (`password`);
+   `secret/flower` (`basic_auth`), `secret/redis` (`password`),
+   `secret/mongodb` (`root_password`, `username`, `password`, `express_basic_auth_password`);
 5. policies из [policies/](policies/) — по одной на компонент, только чтение
-   своего пути: `healthchecks-read`, `rabbitmq-read`, `flower-read`, `redis-read`;
+   своего пути: `healthchecks-read`, `rabbitmq-read`, `flower-read`, `redis-read`, `mongodb-read`;
 6. auth-метод **AppRole**, роль `healthchecks` со всеми policy из п.5
    (список собирается из файлов, новая policy = новый `.hcl`);
    `role_id`/`secret_id` записываются в `.env` (шаблон — [.env.example](../../.env.example)).
@@ -69,6 +70,7 @@ Root-токен используется только этим скриптом;
 bash scripts/deploy.sh                 # приложение: helm upgrade --install с секретами из Vault
 bash scripts/deploy-rabbitmq.sh        # RabbitMQ (deploy/rabbitmq)
 bash scripts/deploy-redis.sh           # Redis + RedisInsight (deploy/redis)
+bash scripts/deploy-mongodb.sh         # MongoDB + mongo-express (deploy/mongodb)
 bash scripts/deploy.sh --dry-run       # доп. аргументы уходят в helm
 ```
 

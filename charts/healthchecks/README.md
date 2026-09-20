@@ -46,6 +46,8 @@ charts/healthchecks/
 | `FLOWER_BASIC_AUTH` | Secret `healthchecks-flower` (Vault `secret/flower`) |
 | `REDIS_HOST/PORT/DB` | ConfigMap |
 | `REDIS_PASSWORD`, `REDIS_URL` | Secret `redis` (релиз чарта Redis, Vault `secret/redis`); URL собирается через `$(VAR)` |
+| `MONGODB_HOST/PORT/DB/USER` | ConfigMap |
+| `MONGODB_PASSWORD`, `MONGODB_URL` | Secret `mongodb-custom-user-0-secret` (релиз чарта MongoDB, Vault `secret/mongodb`) |
 
 Subchart'ы не видят helper'ы родителя, поэтому образ, параметры брокера и имена
 ресурсов приложения передаются им через `global.*` в `values.yaml`.
@@ -106,6 +108,7 @@ helm uninstall healthchecks -n healthchecks
 | `global.rabbitmq.*` | `rabbitmq:5672`, secret `rabbitmq` | параметры брокера |
 | `global.celery.resultBackend`, `global.celery.queue` | `django-db`, `api-tasks` | backend результатов и очередь Celery |
 | `global.redis.*` | `redis:6379/0`, secret `redis` | параметры кэша Redis |
+| `global.mongodb.*` | `mongodb:27017/healthchecks` | параметры MongoDB |
 | `celery-worker.enabled`, `celery-worker.replicaCount`, `celery-worker.concurrency` | `true`, `1`, `2` | subchart Celery-воркера |
 | `flower.enabled`, `flower.ingress.host`, `flower.basicAuth` | `true`, `flower.local`, из Vault | subchart Flower |
 | `postgresql.enabled` | `true` | развернуть subchart Postgres |

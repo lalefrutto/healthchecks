@@ -33,6 +33,12 @@ data:
   REDIS_PORT: {{ .Values.global.redis.port | quote }}
   REDIS_DB: {{ .Values.global.redis.db | quote }}
   {{- end }}
+  {{- if .Values.global.mongodb.enabled }}
+  MONGODB_HOST: {{ .Values.global.mongodb.host | quote }}
+  MONGODB_PORT: {{ .Values.global.mongodb.port | quote }}
+  MONGODB_DB: {{ .Values.global.mongodb.database | quote }}
+  MONGODB_USER: {{ .Values.global.mongodb.username | quote }}
+  {{- end }}
   DB: "postgres"
   DB_HOST: {{ include "healthchecks.database.host" . | quote }}
   DB_PORT: {{ include "healthchecks.database.port" . | quote }}

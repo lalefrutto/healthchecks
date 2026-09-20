@@ -48,6 +48,17 @@ global:
     existingSecret: redis
     passwordKey: password
 
+  # --- MongoDB (релиз cloudpirates/mongodb, deploy/mongodb) — журнал событий задач ---
+  mongodb:
+    enabled: true
+    host: mongodb
+    port: 27017
+    database: healthchecks
+    username: healthchecks
+    # Пароль пользователя приложения — из Secret'а релиза mongodb (значение из Vault)
+    existingSecret: mongodb-custom-user-0-secret
+    passwordKey: CUSTOM_PASSWORD
+
 # Доп. переменные окружения для всех контейнеров приложения
 # (веб, воркер, миграции, prune). См. docs/self_hosted_configuration.md
 extraEnv: []
