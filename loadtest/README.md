@@ -20,14 +20,14 @@ kubectl -n healthchecks top pods --containers
 
 ## Часть 2 — Locust
 
-[locustfile.py](locustfile.py) бьёт по реальным эндпоинтам: `GET /api/v3/checks/`,
+[charts/locust-test/files/locustfile.py](../charts/locust-test/files/locustfile.py) бьёт по реальным эндпоинтам: `GET /api/v3/checks/`,
 `GET /api/v3/checks/<uuid>`, `POST /ping/<uuid>` (самый горячий путь healthchecks),
 `GET /api/v3/tasks/stats/`. Через Ingress + `minikube tunnel`:
 
 ```sh
 export HC_API_KEY=<rw-ключ проекта>
-locust -f loadtest/locustfile.py --host https://healthchecks.local              # web UI :8089
-locust -f loadtest/locustfile.py --host https://healthchecks.local \
+locust -f charts/locust-test/files/locustfile.py --host https://healthchecks.local              # web UI :8089
+locust -f charts/locust-test/files/locustfile.py --host https://healthchecks.local \
     --headless -u 200 -r 20 -t 90s --only-summary --csv loadtest/results/users-200
 ```
 
@@ -107,3 +107,11 @@ $ kubectl -n healthchecks describe vpa healthchecks-celery-worker
 
 Рекомендация по памяти (~237Mi) выше текущего request воркера (192Mi) —
 кандидат на правку `celery-worker.resources` после накопления статистики.
+
+## Часть 4 — locust-operator
+
+Оператор: [deploy/locust-operator](../deploy/locust-operator/README.md).
+Чарт с ConfigMap (`locustfile.py`) + `LocustTest` + Ingress на web UI мастера:
+[charts/locust-test](../charts/locust-test/README.md), запуск —
+`scripts/deploy-locust-test.sh`. Прогон 200 пользователей на 2 воркерах
+внутри кластера: 0% ошибок, ~68 req/s — те же цифры, что при ручном запуске.

@@ -1,0 +1,54 @@
+{{- /*
+Оператор создаёт сервис <name>-master только для портов 5557/5558/9646 (воркеры,
+метрики). Web UI Locust слушает 8089 в поде мастера — открываем его своим
+Service + Ingress.
+*/}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.name }}-webui
+  labels:
+    {{- include "locust-test.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    performance-test-pod-name: {{ .Values.name }}-master
+  ports:
+    - name: webui
+      port: 8089
+      targetPort: 8089
+{{- if .Values.webui.ingress.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Values.name }}-webui
+  labels:
+    {{- include "locust-test.labels" . | nindent 4 }}
+  annotations:
+    {{- if and .Values.webui.ingress.tls.enabled .Values.webui.ingress.tls.clusterIssuer }}
+    cert-manager.io/cluster-issuer: {{ .Values.webui.ingress.tls.clusterIssuer }}
+    {{- end }}
+    {{- with .Values.webui.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.webui.ingress.className }}
+  {{- if .Values.webui.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.webui.ingress.host }}
+      secretName: {{ .Values.webui.ingress.tls.secretName }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.webui.ingress.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.name }}-webui
+                port:
+                  number: 8089
+{{- end }}

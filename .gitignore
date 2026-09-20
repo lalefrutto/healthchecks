@@ -18,4 +18,4 @@ deploy/vault/.vault-keys.json
 /results/
 
 # Locust
-loadtest/__pycache__/
+charts/locust-test/files/__pycache__/

@@ -1,0 +1,37 @@
+apiVersion: locust.io/v2
+kind: LocustTest
+metadata:
+  name: {{ .Values.name }}
+  labels:
+    {{- include "locust-test.labels" . | nindent 4 }}
+spec:
+  image: {{ .Values.image }}
+  testFiles:
+    configMapRef: {{ .Values.name }}-locustfile
+  env:
+    secretRefs:
+      - name: {{ .Values.name }}-env
+  master:
+    # Оператор сам добавит --master --master-port --expect-workers
+    command: >-
+      --locustfile /lotest/src/locustfile.py
+      --host {{ .Values.test.host }}
+      --users {{ .Values.test.users }}
+      --spawn-rate {{ .Values.test.spawnRate }}
+      --run-time {{ .Values.test.runTime }}
+    autostart: {{ .Values.test.autostart }}
+    {{- if and .Values.test.autostart .Values.test.autoquitSeconds }}
+    autoquit:
+      enabled: true
+      timeout: {{ .Values.test.autoquitSeconds }}
+    {{- else }}
+    autoquit:
+      enabled: false
+    {{- end }}
+    resources:
+      {{- toYaml .Values.master.resources | nindent 6 }}
+  worker:
+    command: "--locustfile /lotest/src/locustfile.py"
+    replicas: {{ .Values.worker.replicas }}
+    resources:
+      {{- toYaml .Values.worker.resources | nindent 6 }}

@@ -81,8 +81,9 @@ extraEnv: []
 config:
   # Внешний адрес — совпадает с ingress.host
   siteRoot: https://healthchecks.local
-  # Пусто -> хост берётся из siteRoot. Локальные адреса нужны для probe/port-forward
-  allowedHosts: "healthchecks.local,localhost,127.0.0.1"
+  # Пусто -> хост берётся из siteRoot. Локальные адреса нужны для probe/port-forward,
+  # имя сервиса — для клиентов внутри кластера (Locust через оператор)
+  allowedHosts: "healthchecks.local,localhost,127.0.0.1,healthchecks,healthchecks.healthchecks.svc.cluster.local"
   debug: false
   defaultFromEmail: noreply@example.com
   # TLS терминируется на Ingress, по этому заголовку Django узнаёт про https

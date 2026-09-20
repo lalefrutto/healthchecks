@@ -7,9 +7,9 @@
   * GET  /api/v3/tasks/stats/   — агрегат из Задания 4 (кэшируется в Redis)
 
 Запуск (локально, через Ingress + minikube tunnel):
-  HC_API_KEY=<rw-ключ проекта> locust -f loadtest/locustfile.py --host https://healthchecks.local
+  HC_API_KEY=<rw-ключ проекта> locust -f charts/locust-test/files/locustfile.py --host https://healthchecks.local
 Headless-прогон с нарастающей нагрузкой:
-  HC_API_KEY=... locust -f loadtest/locustfile.py --host https://healthchecks.local \
+  HC_API_KEY=... locust -f charts/locust-test/files/locustfile.py --host https://healthchecks.local \
       --headless -u 100 -r 5 -t 3m --only-summary
 
 Переменные окружения:

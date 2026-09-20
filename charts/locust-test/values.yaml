@@ -1,0 +1,58 @@
+# Default values for the locust-test chart (Задание 7, Часть 4).
+# Требует установленного locust-k8s-operator (deploy/locust-operator).
+
+# Имя ресурса LocustTest; от него — имена job'ов/сервисов оператора
+# (<name>-master, <name>-worker) и нашего сервиса UI (<name>-webui)
+name: load-test-v2
+
+image: locustio/locust:2.46.6
+
+# Те же параметры, что в ручном прогоне (Часть 2)
+test:
+  # Цель — сервис приложения внутри кластера (без ingress/TLS)
+  host: http://healthchecks
+  users: 200
+  spawnRate: 20
+  runTime: 3m
+  # Запускать тест сразу при создании (иначе — кнопкой в web UI)
+  autostart: true
+  # Оператор добавляет --autoquit <сек> только при autostart; 0 -> не добавлять
+  autoquitSeconds: 0
+
+master:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+worker:
+  replicas: 2
+  resources:
+    requests:
+      cpu: 200m
+      memory: 128Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+
+# Переменные окружения locustfile (HC_API_KEY — обязательна, передаётся через
+# --set или secrets-файл; в git не хранится)
+env:
+  HC_API_KEY: ""
+  HC_CHECK: ""
+
+# Web UI мастера (:8089) — свой Service + Ingress, оператор их не создаёт
+webui:
+  ingress:
+    enabled: true
+    className: nginx
+    host: locust.local
+    annotations:
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    tls:
+      enabled: true
+      clusterIssuer: healthchecks-ca-issuer
+      secretName: locust-tls

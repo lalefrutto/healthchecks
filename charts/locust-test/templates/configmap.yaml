@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.name }}-locustfile
+  labels:
+    {{- include "locust-test.labels" . | nindent 4 }}
+data:
+  # Тот же сценарий, что для ручного прогона (files/locustfile.py)
+  locustfile.py: |
+{{ .Files.Get "files/locustfile.py" | indent 4 }}

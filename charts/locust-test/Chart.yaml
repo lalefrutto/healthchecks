@@ -1,0 +1,6 @@
+apiVersion: v2
+name: locust-test
+description: Distributed Locust load test for healthchecks via locust-k8s-operator (LocustTest CR + locustfile ConfigMap + web UI Ingress)
+type: application
+version: 0.1.0
+appVersion: "2.46.6"
