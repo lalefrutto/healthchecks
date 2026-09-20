@@ -1,0 +1,14 @@
+
+# Инфраструктура курса — в образ приложения не нужна; иначе любая правка чарта
+# меняет контекст сборки, и werf пересобирает образ
+.helm
+charts
+deploy
+k8s
+loadtest
+scripts
+.github
+werf.yaml
+werf-giterminism.yaml
+.releaserc.json
+*.md
