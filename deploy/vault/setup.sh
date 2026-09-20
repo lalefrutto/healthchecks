@@ -6,9 +6,9 @@
 #   1. vault operator init (один раз) -> ключ и root-токен в deploy/vault/.vault-keys.json
 #   2. unseal
 #   3. KV v2 secrets engine на пути secret/
-#   4. секреты приложения secret/healthchecks (генерируются, если ещё нет)
-#   5. policy healthchecks-read (deploy/vault/policies/healthchecks-read.hcl)
-#   6. AppRole healthchecks с этой policy -> ROLE_ID / SECRET_ID в .env
+#   4. секреты: secret/healthchecks, secret/rabbitmq (генерируются, если ещё нет)
+#   5. policies из deploy/vault/policies/*.hcl (по одной на компонент)
+#   6. AppRole healthchecks со всеми этими policy -> ROLE_ID / SECRET_ID в .env
 #
 # Все команды vault выполняются внутри пода vault-0 через kubectl exec, поэтому
 # доступ к Vault с хоста для этого скрипта не нужен.
@@ -19,7 +19,7 @@ VAULT_NS="${VAULT_NS:-vault}"
 VAULT_POD="${VAULT_POD:-vault-0}"
 KEYS_FILE="$ROOT_DIR/deploy/vault/.vault-keys.json"
 ENV_FILE="$ROOT_DIR/.env"
-POLICY_FILE="$ROOT_DIR/deploy/vault/policies/healthchecks-read.hcl"
+POLICY_DIR="$ROOT_DIR/deploy/vault/policies"
 
 # Адрес Vault с хоста (через Ingress). Записывается в .env для vals/helm-secrets.
 VAULT_EXTERNAL_ADDR="${VAULT_EXTERNAL_ADDR:-https://vault.local}"
@@ -59,28 +59,46 @@ if ! vault_root secrets list -format=json | grep -q '"secret/"'; then
   vault_root secrets enable -path=secret kv-v2 >/dev/null
 fi
 
-# --- 4. секреты приложения -------------------------------------------------
-if ! vault_root kv get secret/healthchecks >/dev/null 2>&1; then
-  echo "==> kv put secret/healthchecks (генерируем новые значения)"
-  vault_root kv put secret/healthchecks \
-    SECRET_KEY="$(rand_secret 50)" \
-    DB_PASSWORD="$(rand_secret 32)" >/dev/null
-else
-  echo "==> secret/healthchecks уже существует, не трогаем"
-fi
+# --- 4. секреты компонентов ------------------------------------------------
+# ensure_secret <path> key=value... — создаёт секрет, только если его ещё нет
+ensure_secret() {
+  local path="$1"; shift
+  if vault_root kv get "$path" >/dev/null 2>&1; then
+    echo "==> $path уже существует, не трогаем"
+  else
+    echo "==> kv put $path (генерируем новые значения)"
+    vault_root kv put "$path" "$@" >/dev/null
+  fi
+}
 
-# --- 5. policy -------------------------------------------------------------
-echo "==> policy write healthchecks-read"
-vault_root policy write healthchecks-read - <"$POLICY_FILE" >/dev/null
+# Django-приложение
+ensure_secret secret/healthchecks \
+  SECRET_KEY="$(rand_secret 50)" \
+  DB_PASSWORD="$(rand_secret 32)"
+
+# RabbitMQ (Задание 3): учётка для чарта и клиентов, erlang cookie для кластера
+ensure_secret secret/rabbitmq \
+  username="healthchecks" \
+  password="$(rand_secret 32)" \
+  erlang_cookie="$(rand_secret 40)"
+
+# --- 5. policies -----------------------------------------------------------
+POLICIES=""
+for f in "$POLICY_DIR"/*.hcl; do
+  name="$(basename "$f" .hcl)"
+  echo "==> policy write $name"
+  vault_root policy write "$name" - <"$f" >/dev/null
+  POLICIES="${POLICIES:+$POLICIES,}$name"
+done
 
 # --- 6. AppRole ------------------------------------------------------------
 if ! vault_root auth list -format=json | grep -q '"approle/"'; then
   echo "==> auth enable approle"
   vault_root auth enable approle >/dev/null
 fi
-echo "==> approle role healthchecks"
+echo "==> approle role healthchecks (policies: $POLICIES)"
 vault_root write auth/approle/role/healthchecks \
-  token_policies="healthchecks-read" \
+  token_policies="$POLICIES" \
   token_ttl=1h \
   token_max_ttl=4h \
   secret_id_ttl=0 \

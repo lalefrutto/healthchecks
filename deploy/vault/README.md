@@ -51,10 +51,13 @@ bash deploy/vault/setup.sh
 2. `vault operator unseal` — повторный запуск скрипта после рестарта кластера
    просто распечатает Vault;
 3. secrets engine **KV v2** на `secret/`;
-4. `secret/healthchecks` с `SECRET_KEY` и `DB_PASSWORD` (генерируются один раз);
-5. policy `healthchecks-read` ([policies/healthchecks-read.hcl](policies/healthchecks-read.hcl)) —
-   только чтение `secret/healthchecks*`;
-6. auth-метод **AppRole**, роль `healthchecks` с этой policy;
+4. секреты компонентов (генерируются один раз, повторный запуск их не трогает):
+   `secret/healthchecks` (`SECRET_KEY`, `DB_PASSWORD`),
+   `secret/rabbitmq` (`username`, `password`, `erlang_cookie`);
+5. policies из [policies/](policies/) — по одной на компонент, только чтение
+   своего пути: `healthchecks-read`, `rabbitmq-read`;
+6. auth-метод **AppRole**, роль `healthchecks` со всеми policy из п.5
+   (список собирается из файлов, новая policy = новый `.hcl`);
    `role_id`/`secret_id` записываются в `.env` (шаблон — [.env.example](../../.env.example)).
 
 Root-токен используется только этим скриптом; деплой ходит в Vault под AppRole.
@@ -62,9 +65,13 @@ Root-токен используется только этим скриптом;
 ## Деплой приложения
 
 ```sh
-bash scripts/deploy.sh                 # helm upgrade --install с секретами из Vault
+bash scripts/deploy.sh                 # приложение: helm upgrade --install с секретами из Vault
+bash scripts/deploy-rabbitmq.sh        # RabbitMQ (deploy/rabbitmq)
 bash scripts/deploy.sh --dry-run       # доп. аргументы уходят в helm
 ```
+
+Общая логика (загрузка `.env`, AppRole-логин, `helm secrets ... upgrade --install`)
+вынесена в [scripts/lib.sh](../../scripts/lib.sh).
 
 Проверить, что vals резолвит ссылку (значение не печатаем):
 
