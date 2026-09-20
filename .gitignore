@@ -15,7 +15,7 @@ CLAUDE.md
 deploy/vault/.vault-keys.json
 
 # Результаты consumer (hc/mq)
-results/
+/results/
 
 # Locust
 loadtest/__pycache__/
