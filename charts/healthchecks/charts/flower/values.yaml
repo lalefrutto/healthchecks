@@ -1,0 +1,59 @@
+# Default values for the flower subchart.
+# Образ и параметры брокера — из global.* родительского чарта.
+
+nameOverride: ""
+fullnameOverride: ""
+
+replicaCount: 1
+port: 5555
+
+# HTTP basic auth ("user:password"). Значение приходит из Vault через
+# secrets.yaml родительского чарта (ref+vault://secret/flower#/basic_auth);
+# пусто -> без авторизации (только для локальной разработки)
+basicAuth: ""
+existingSecret: ""
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  className: nginx
+  host: flower.local
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  tls:
+    enabled: true
+    clusterIssuer: healthchecks-ca-issuer
+    secretName: flower-tls
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 300m
+    memory: 256Mi
+
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+global:
+  image:
+    repository: healthchecks
+    tag: local
+    pullPolicy: IfNotPresent
+  imagePullSecrets: []
+  app:
+    configMapName: ""
+    secretName: ""
+    postgresqlSecretName: ""
+  rabbitmq:
+    enabled: true
+    existingSecret: rabbitmq
+    passwordKey: password
+  celery:
+    queue: api-tasks

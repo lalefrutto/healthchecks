@@ -34,6 +34,14 @@ ingress:
       hosts:
         - rabbitmq.local
 
+config:
+  # RabbitMQ 4.x по умолчанию запрещает transient non-exclusive очереди, а
+  # Celery (pidbox для remote control) и Flower (очередь событий celeryev.*)
+  # объявляют именно такие. Разрешаем, пока Celery/Kombu не перейдут на
+  # exclusive/durable очереди.
+  extraConfiguration: |
+    deprecated_features.permit.transient_nonexcl_queues = true
+
 persistence:
   enabled: true
   size: 1Gi

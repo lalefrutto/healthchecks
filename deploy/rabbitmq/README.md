@@ -33,3 +33,15 @@ bash scripts/deploy-rabbitmq.sh          # релиз rabbitmq в namespace heal
 kubectl -n healthchecks get pods,svc,ingress -l app.kubernetes.io/instance=rabbitmq
 curl -k -u "$USER:$PASS" https://rabbitmq.local/api/overview
 ```
+
+## RabbitMQ 4.x и Celery
+
+RabbitMQ 4 по умолчанию запрещает transient non-exclusive очереди
+(`transient_nonexcl_queues`), а Celery (pidbox для remote control) и Flower
+(очередь событий `celeryev.*`) объявляют именно такие — воркер и Flower падали
+с `Queue.declare: (541) INTERNAL_ERROR`. В [values.yaml](values.yaml) это
+разрешено через `config.extraConfiguration`:
+
+```
+deprecated_features.permit.transient_nonexcl_queues = true
+```

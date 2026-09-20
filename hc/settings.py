@@ -98,6 +98,7 @@ INSTALLED_APPS = (
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "compressor",
+    "django_celery_results",
     "hc.api",
     "hc.front",
     "hc.logs",

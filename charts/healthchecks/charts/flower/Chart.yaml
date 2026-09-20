@@ -1,0 +1,6 @@
+apiVersion: v2
+name: flower
+description: Flower — web UI for monitoring Celery workers and tasks (subchart of healthchecks)
+type: application
+version: 0.1.0
+appVersion: "2.1"

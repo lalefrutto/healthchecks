@@ -95,7 +95,21 @@ Secret с паролем БД (ключ `password`).
 {{- end }}
 
 {{/*
-Общий блок окружения для всех контейнеров приложения.
+Имя Secret'а RabbitMQ (ключ password). По умолчанию — имя релиза чарта rabbitmq.
+*/}}
+{{- define "healthchecks.rabbitmq.secretName" -}}
+{{- default "rabbitmq" .Values.global.rabbitmq.existingSecret }}
+{{- end }}
+
+{{/*
+Общий блок окружения для всех контейнеров приложения (web, worker, migrate,
+prune, celery-worker, flower). Окружение собирается из ConfigMap и НЕСКОЛЬКИХ
+Secret'ов — у каждого компонента свой:
+  - <fullname>            SECRET_KEY Django
+  - <fullname>-postgresql пароль БД (subchart postgresql)
+  - rabbitmq              пароль брокера (релиз чарта rabbitmq)
+Составные значения (CELERY_BROKER_URL) собираются через $(VAR) — Kubernetes
+подставляет ранее объявленные переменные, поэтому пароль не дублируется.
 */}}
 {{- define "healthchecks.env" -}}
 envFrom:
@@ -112,6 +126,15 @@ env:
       secretKeyRef:
         name: {{ include "healthchecks.database.secretName" . }}
         key: password
+  {{- if .Values.global.rabbitmq.enabled }}
+  - name: RABBITMQ_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: {{ include "healthchecks.rabbitmq.secretName" . }}
+        key: {{ .Values.global.rabbitmq.passwordKey }}
+  - name: CELERY_BROKER_URL
+    value: "amqp://$(RABBITMQ_USER):$(RABBITMQ_PASSWORD)@$(RABBITMQ_HOST):$(RABBITMQ_PORT)/$(RABBITMQ_VHOST)"
+  {{- end }}
   {{- with .Values.extraEnv }}
   {{- toYaml . | nindent 2 }}
   {{- end }}
@@ -145,5 +168,5 @@ initContainers:
 Образ приложения.
 */}}
 {{- define "healthchecks.image" -}}
-{{- printf "%s:%s" .Values.image.repository (default .Chart.AppVersion .Values.image.tag) }}
+{{- printf "%s:%s" .Values.global.image.repository (default .Chart.AppVersion .Values.global.image.tag) }}
 {{- end }}

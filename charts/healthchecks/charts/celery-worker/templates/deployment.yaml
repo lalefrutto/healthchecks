@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "celery-worker.fullname" . }}
+  labels:
+    {{- include "celery-worker.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "celery-worker.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "celery-worker.selectorLabels" . | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.waitForDb.enabled }}
+      initContainers:
+        - name: wait-for-db
+          image: {{ .Values.waitForDb.image }}
+          envFrom:
+            - configMapRef:
+                name: {{ default (include "celery-worker.appFullname" .) .Values.global.app.configMapName }}
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER"; do
+                echo "waiting for postgres at $DB_HOST:$DB_PORT..."
+                sleep 2
+              done
+      {{- end }}
+      containers:
+        - name: celery-worker
+          image: {{ include "celery-worker.image" . }}
+          imagePullPolicy: {{ .Values.global.image.pullPolicy }}
+          command:
+            - celery
+            - -A
+            - hc
+            - worker
+            - --loglevel={{ .Values.logLevel }}
+            - --concurrency={{ .Values.concurrency }}
+            - --queues={{ .Values.global.celery.queue }}
+            # Уникальное имя ноды, чтобы реплики не конфликтовали
+            - --hostname=worker@%h
+            {{- range .Values.extraArgs }}
+            - {{ . | quote }}
+            {{- end }}
+          {{- include "celery-worker.env" . | nindent 10 }}
+          {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - celery -A hc inspect ping --destination "worker@$(hostname)" --timeout 10
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

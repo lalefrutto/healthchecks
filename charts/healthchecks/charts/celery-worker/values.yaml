@@ -1,0 +1,56 @@
+# Default values for the celery-worker subchart.
+# Образ, параметры брокера и имена ресурсов приложения приходят из global.*
+# родительского чарта (charts/healthchecks/values.yaml).
+
+nameOverride: ""
+fullnameOverride: ""
+
+replicaCount: 1
+# Параллельных процессов в одном воркере (celery --concurrency)
+concurrency: 2
+logLevel: info
+# Доп. аргументы `celery worker`
+extraArgs: []
+
+# Init-контейнер, ждущий готовности Postgres (результаты — в БД)
+waitForDb:
+  enabled: true
+  image: postgres:16
+
+# Пингует сам себя через celery inspect; дорогая проверка, поэтому редкая
+livenessProbe:
+  enabled: true
+  periodSeconds: 60
+  timeoutSeconds: 15
+  initialDelaySeconds: 30
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 192Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Значения, подставляемые родителем; здесь — только чтобы чарт рендерился отдельно
+global:
+  image:
+    repository: healthchecks
+    tag: local
+    pullPolicy: IfNotPresent
+  imagePullSecrets: []
+  app:
+    configMapName: ""
+    secretName: ""
+    postgresqlSecretName: ""
+  rabbitmq:
+    enabled: true
+    existingSecret: rabbitmq
+    passwordKey: password
+  celery:
+    queue: api-tasks

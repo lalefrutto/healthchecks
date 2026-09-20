@@ -23,14 +23,14 @@ spec:
             app.kubernetes.io/component: prune
         spec:
           restartPolicy: Never
-          {{- with .Values.imagePullSecrets }}
+          {{- with .Values.global.imagePullSecrets }}
           imagePullSecrets:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           containers:
             - name: prune
               image: {{ include "healthchecks.image" . }}
-              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              imagePullPolicy: {{ .Values.global.image.pullPolicy }}
               command:
                 - sh
                 - -c

@@ -1,7 +1,7 @@
 # healthchecks — Helm-чарт
 
 Оборачивает манифесты из `k8s/` (Задание 1) в чарт с настраиваемыми `values.yaml`.
-PostgreSQL вынесен в локальный subchart `charts/postgresql`.
+PostgreSQL, Celery-воркер и Flower вынесены в локальные subchart'ы (`charts/*`).
 
 ## Структура
 
@@ -24,8 +24,33 @@ charts/healthchecks/
 │   ├── ingress.yaml            # Ingress + TLS от cert-manager
 │   ├── cert-manager-issuers.yaml # self-signed CA + ClusterIssuer'ы (локальная разработка)
 │   └── NOTES.txt
-└── charts/postgresql/          # subchart: Secret, headless Service, PV/PVC, StatefulSet
+├── charts/postgresql/          # subchart: Secret, headless Service, PV/PVC, StatefulSet
+├── charts/celery-worker/       # subchart: Deployment `celery -A hc worker -Q api-tasks`
+└── charts/flower/              # subchart: Flower UI (Deployment + Service + Ingress flower.local, basic auth из Vault)
 ```
+
+## Окружение из нескольких секретов
+
+Все контейнеры приложения (web, worker, migrate, prune, celery-worker, flower)
+получают одинаковое окружение (`_helpers.tpl`, `healthchecks.env`): несекретные
+параметры — из ConfigMap, а секреты — **из нескольких Secret'ов**, у каждого
+компонента свой:
+
+| Переменная | Источник |
+|---|---|
+| `SECRET_KEY` | Secret `healthchecks` (значение из Vault `secret/healthchecks`) |
+| `DB_PASSWORD` | Secret `healthchecks-postgresql` (subchart postgresql, Vault `secret/healthchecks#DB_PASSWORD`) |
+| `RABBITMQ_PASSWORD` | Secret `rabbitmq` (релиз чарта RabbitMQ, Vault `secret/rabbitmq`) |
+| `RABBITMQ_HOST/PORT/USER/VHOST`, `CELERY_*` | ConfigMap |
+| `CELERY_BROKER_URL` | собирается в манифесте как `amqp://$(RABBITMQ_USER):$(RABBITMQ_PASSWORD)@…` — Kubernetes подставляет ранее объявленные переменные, пароль нигде не дублируется |
+| `FLOWER_BASIC_AUTH` | Secret `healthchecks-flower` (Vault `secret/flower`) |
+
+Subchart'ы не видят helper'ы родителя, поэтому образ, параметры брокера и имена
+ресурсов приложения передаются им через `global.*` в `values.yaml`.
+
+Настройки Celery — в [hc/celeryconfig.py](../../hc/celeryconfig.py): всё читается
+из этих же переменных окружения (`CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`,
+`CELERY_TASK_DEFAULT_QUEUE`).
 
 ## Установка
 
@@ -62,7 +87,6 @@ helm uninstall healthchecks -n healthchecks
 
 | Параметр | По умолчанию | Описание |
 |---|---|---|
-| `image.repository`, `image.tag` | `healthchecks`, `local` | образ приложения |
 | `config.siteRoot` | `https://healthchecks.local` | внешний URL, должен совпадать с `ingress.host` |
 | `config.allowedHosts` | `healthchecks.local,localhost,127.0.0.1` | `ALLOWED_HOSTS` |
 | `secrets.secretKey` / `secrets.existingSecret` | `""` (из Vault через `secrets.yaml`) | Django `SECRET_KEY` |
@@ -76,6 +100,11 @@ helm uninstall healthchecks -n healthchecks
 | `ingress.tls.clusterIssuer` | `healthchecks-ca-issuer` | ClusterIssuer cert-manager'а |
 | `certManager.createIssuers` | `true` | создать self-signed CA и issuer'ы |
 | `email.host`, `email.externalName.*` | `smtp`, `smtp.gmail.com` | ExternalName-сервис для SMTP |
+| `global.image.*` | `healthchecks:local` | образ приложения (для всех компонентов и subchart'ов) |
+| `global.rabbitmq.*` | `rabbitmq:5672`, secret `rabbitmq` | параметры брокера |
+| `global.celery.resultBackend`, `global.celery.queue` | `django-db`, `api-tasks` | backend результатов и очередь Celery |
+| `celery-worker.enabled`, `celery-worker.replicaCount`, `celery-worker.concurrency` | `true`, `1`, `2` | subchart Celery-воркера |
+| `flower.enabled`, `flower.ingress.host`, `flower.basicAuth` | `true`, `flower.local`, из Vault | subchart Flower |
 | `postgresql.enabled` | `true` | развернуть subchart Postgres |
 | `postgresql.auth.*` | `healthchecks` / пароль из Vault | БД, пользователь, пароль |
 | `postgresql.persistence.hostPath.path` | `/data/healthchecks-postgres` | hostPath для minikube |

@@ -19,6 +19,15 @@ data:
   EMAIL_PORT: {{ $.Values.email.port | quote }}
   EMAIL_USE_TLS: {{ $.Values.email.useTls | ternary "True" "False" | quote }}
   {{- end }}
+  {{- if .Values.global.rabbitmq.enabled }}
+  # Несекретные параметры брокера; пароль — в Secret (см. _helpers.tpl "healthchecks.env")
+  RABBITMQ_HOST: {{ .Values.global.rabbitmq.host | quote }}
+  RABBITMQ_PORT: {{ .Values.global.rabbitmq.port | quote }}
+  RABBITMQ_USER: {{ .Values.global.rabbitmq.username | quote }}
+  RABBITMQ_VHOST: {{ .Values.global.rabbitmq.vhost | quote }}
+  CELERY_RESULT_BACKEND: {{ .Values.global.celery.resultBackend | quote }}
+  CELERY_TASK_DEFAULT_QUEUE: {{ .Values.global.celery.queue | quote }}
+  {{- end }}
   DB: "postgres"
   DB_HOST: {{ include "healthchecks.database.host" . | quote }}
   DB_PORT: {{ include "healthchecks.database.port" . | quote }}

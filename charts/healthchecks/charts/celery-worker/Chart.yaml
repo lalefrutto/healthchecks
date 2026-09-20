@@ -1,0 +1,6 @@
+apiVersion: v2
+name: celery-worker
+description: Celery worker for healthchecks (subchart; runs `celery -A hc worker` on the application image)
+type: application
+version: 0.1.0
+appVersion: "5.6"

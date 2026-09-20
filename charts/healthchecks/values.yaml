@@ -3,13 +3,40 @@
 nameOverride: ""
 fullnameOverride: ""
 
-image:
-  repository: healthchecks
-  tag: local
-  # Образ собирается локально через `minikube image build`, поэтому IfNotPresent
-  pullPolicy: IfNotPresent
+# global.* видят и subchart'ы (celery-worker, flower): образ приложения,
+# параметры брокера и Celery — один источник для всех компонентов.
+global:
+  image:
+    repository: healthchecks
+    tag: local
+    # Образ собирается локально через `minikube image build`, поэтому IfNotPresent
+    pullPolicy: IfNotPresent
+  imagePullSecrets: []
 
-imagePullSecrets: []
+  # Имена ресурсов чарта healthchecks, из которых subchart'ы собирают окружение.
+  # Пусто -> вычисляются из имени релиза (как в _helpers.tpl).
+  app:
+    configMapName: ""
+    secretName: ""
+    postgresqlSecretName: ""
+
+  # --- RabbitMQ (отдельный релиз чарта cloudpirates/rabbitmq, deploy/rabbitmq) ---
+  rabbitmq:
+    enabled: true
+    host: rabbitmq
+    port: 5672
+    # vhost "/" в URL кодируется как %2F -> amqp://.../%2F
+    vhost: "%2F"
+    # Логин — несекретный (тот же, что auth.username в deploy/rabbitmq); пароль
+    # берётся из Secret'а релиза rabbitmq, ключ passwordKey
+    username: healthchecks
+    existingSecret: rabbitmq
+    passwordKey: password
+
+  celery:
+    # django-db: результаты в Postgres через django-celery-results
+    resultBackend: django-db
+    queue: api-tasks
 
 # Доп. переменные окружения для всех контейнеров приложения
 # (веб, воркер, миграции, prune). См. docs/self_hosted_configuration.md
@@ -135,6 +162,21 @@ certManager:
   # namespace, в котором установлен cert-manager (там должен лежать CA-secret)
   namespace: cert-manager
   caCommonName: healthchecks-local-ca
+
+# --- Subchart charts/celery-worker ---
+celery-worker:
+  enabled: true
+  replicaCount: 1
+  concurrency: 2
+
+# --- Subchart charts/flower ---
+flower:
+  enabled: true
+  # basicAuth ("user:password") приходит из Vault через secrets.yaml
+  basicAuth: ""
+  ingress:
+    enabled: true
+    host: flower.local
 
 # --- Subchart charts/postgresql ---
 postgresql:

@@ -21,7 +21,7 @@ spec:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
         checksum/secrets: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}{{ if .Values.postgresql.enabled }}{{ .Values.postgresql.auth.password | sha256sum }}{{ end }}
     spec:
-      {{- with .Values.imagePullSecrets }}
+      {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -31,14 +31,14 @@ spec:
         # Deployment, а не CronJob
         - name: sendalerts
           image: {{ include "healthchecks.image" . }}
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          imagePullPolicy: {{ .Values.global.image.pullPolicy }}
           command: ["./manage.py", "sendalerts", "--skip-checks"]
           {{- include "healthchecks.env" . | nindent 10 }}
           resources:
             {{- toYaml .Values.worker.resources | nindent 12 }}
         - name: sendreports
           image: {{ include "healthchecks.image" . }}
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          imagePullPolicy: {{ .Values.global.image.pullPolicy }}
           command: ["./manage.py", "sendreports", "--loop", "--skip-checks"]
           {{- include "healthchecks.env" . | nindent 10 }}
           resources:
