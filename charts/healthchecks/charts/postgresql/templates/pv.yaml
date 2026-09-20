@@ -1,0 +1,23 @@
+{{- if and .Values.persistence.enabled .Values.persistence.hostPath.enabled }}
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  # PV не namespaced, поэтому имя включает namespace, чтобы не пересекаться
+  name: {{ .Release.Namespace }}-{{ include "postgresql.fullname" . }}
+  labels:
+    {{- include "postgresql.labels" . | nindent 4 }}
+  annotations:
+    # PV с данными переживает helm uninstall/upgrade
+    helm.sh/resource-policy: keep
+spec:
+  capacity:
+    storage: {{ .Values.persistence.size }}
+  accessModes:
+    {{- toYaml .Values.persistence.accessModes | nindent 4 }}
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: {{ .Values.persistence.storageClass }}
+  # hostPath годится только для одноузлового minikube
+  hostPath:
+    path: {{ .Values.persistence.hostPath.path }}
+    type: DirectoryOrCreate
+{{- end }}

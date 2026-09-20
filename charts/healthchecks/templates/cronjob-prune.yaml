@@ -1,0 +1,44 @@
+{{- if .Values.prune.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "healthchecks.fullname" . }}-prune
+  labels:
+    {{- include "healthchecks.labels" . | nindent 4 }}
+    app.kubernetes.io/component: prune
+spec:
+  schedule: {{ .Values.prune.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  startingDeadlineSeconds: 300
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 600
+      template:
+        metadata:
+          labels:
+            {{- include "healthchecks.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: prune
+        spec:
+          restartPolicy: Never
+          {{- with .Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          containers:
+            - name: prune
+              image: {{ include "healthchecks.image" . }}
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command:
+                - sh
+                - -c
+                - |
+                  set -e
+                  ./manage.py prunetokenbucket --skip-checks
+                  ./manage.py prunepingsslow --skip-checks
+              {{- include "healthchecks.env" . | nindent 14 }}
+              resources:
+                {{- toYaml .Values.prune.resources | nindent 16 }}
+{{- end }}

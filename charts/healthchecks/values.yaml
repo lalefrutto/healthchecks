@@ -1,0 +1,159 @@
+# Default values for healthchecks.
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: healthchecks
+  tag: local
+  # Образ собирается локально через `minikube image build`, поэтому IfNotPresent
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# Доп. переменные окружения для всех контейнеров приложения
+# (веб, воркер, миграции, prune). См. docs/self_hosted_configuration.md
+extraEnv: []
+#  - name: REGISTRATION_OPEN
+#    value: "False"
+
+config:
+  # Внешний адрес — совпадает с ingress.host
+  siteRoot: https://healthchecks.local
+  # Пусто -> хост берётся из siteRoot. Локальные адреса нужны для probe/port-forward
+  allowedHosts: "healthchecks.local,localhost,127.0.0.1"
+  debug: false
+  defaultFromEmail: noreply@example.com
+  # TLS терминируется на Ingress, по этому заголовку Django узнаёт про https
+  secureProxySslHeader: "HTTP_X_FORWARDED_PROTO,https"
+
+secrets:
+  # Django SECRET_KEY. TODO: Задание 2, Часть 2 — вынести в Vault.
+  secretKey: change-me-django-secret-key
+  # Имя существующего Secret с ключом SECRET_KEY вместо создания своего
+  existingSecret: ""
+
+email:
+  # Хост SMTP. Если externalName.enabled — это имя ExternalName-сервиса
+  host: smtp
+  port: 587
+  useTls: true
+  # user/password задаются через extraEnv или existingSecret (EMAIL_HOST_USER, EMAIL_HOST_PASSWORD)
+  externalName:
+    enabled: true
+    # Внешний SMTP-сервер, на который резолвится сервис `email.host`
+    target: smtp.gmail.com
+
+web:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  # uWSGI-процессов на под
+  uwsgiProcesses: 4
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+service:
+  type: ClusterIP
+  port: 80
+
+worker:
+  # Фоновые процессы sendalerts и sendreports --loop
+  enabled: true
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 96Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
+
+migrate:
+  # Job с manage.py migrate, запускается helm-хуком после install/upgrade
+  enabled: true
+  backoffLimit: 3
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+prune:
+  # CronJob: prunetokenbucket + prunepingsslow
+  enabled: true
+  schedule: "*/10 * * * *"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 96Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
+
+# Init-контейнер, ждущий готовности Postgres (pg_isready)
+waitForDb:
+  enabled: true
+  image: postgres:16
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+
+ingress:
+  enabled: true
+  className: nginx
+  host: healthchecks.local
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "1m"
+  tls:
+    enabled: true
+    # ClusterIssuer cert-manager'а; пусто — сертификат не запрашивается,
+    # ожидается готовый secret с именем secretName
+    clusterIssuer: healthchecks-ca-issuer
+    secretName: healthchecks-tls
+
+certManager:
+  # Создать ClusterIssuer'ы для локальной разработки:
+  # selfsigned -> CA-сертификат -> CA ClusterIssuer (ingress.tls.clusterIssuer)
+  createIssuers: true
+  # namespace, в котором установлен cert-manager (там должен лежать CA-secret)
+  namespace: cert-manager
+  caCommonName: healthchecks-local-ca
+
+# --- Subchart charts/postgresql ---
+postgresql:
+  enabled: true
+  auth:
+    database: healthchecks
+    username: healthchecks
+    # TODO: Задание 2, Часть 2 — вынести в Vault
+    password: change-me-strong-password
+  persistence:
+    size: 1Gi
+    storageClass: manual
+    hostPath:
+      enabled: true
+      path: /data/healthchecks-postgres
+
+# Используется, когда postgresql.enabled=false (внешняя/managed БД)
+externalDatabase:
+  host: ""
+  port: 5432
+  database: healthchecks
+  username: healthchecks
+  # Secret с ключом `password`
+  existingSecret: ""

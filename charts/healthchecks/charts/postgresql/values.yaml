@@ -1,0 +1,44 @@
+# Default values for the postgresql subchart.
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: postgres
+  tag: "16"
+  pullPolicy: IfNotPresent
+
+auth:
+  database: healthchecks
+  username: healthchecks
+  password: ""
+  # Готовый Secret с ключом `password` вместо создания своего
+  existingSecret: ""
+
+service:
+  port: 5432
+
+persistence:
+  enabled: true
+  size: 1Gi
+  # Пустое значение -> default StorageClass кластера (динамический provisioning)
+  storageClass: manual
+  accessModes:
+    - ReadWriteOnce
+  # Локальный minikube: создать PV на hostPath одного узла. В облаке выключить
+  # и оставить provisioning на StorageClass.
+  hostPath:
+    enabled: true
+    path: /data/postgresql
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

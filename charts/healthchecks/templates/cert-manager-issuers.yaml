@@ -1,0 +1,48 @@
+{{- if .Values.certManager.createIssuers }}
+{{- /*
+Self-signed CA для локальной разработки:
+  selfsigned ClusterIssuer -> CA Certificate -> CA ClusterIssuer.
+В облаке вместо этого используется ACME-issuer (Let's Encrypt), а
+ingress.tls.clusterIssuer указывает на него. Требует установленного cert-manager.
+*/}}
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ include "healthchecks.fullname" . }}-selfsigned
+  labels:
+    {{- include "healthchecks.labels" . | nindent 4 }}
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "healthchecks.fullname" . }}-ca
+  # CA-secret должен лежать в namespace самого cert-manager
+  namespace: {{ .Values.certManager.namespace }}
+  labels:
+    {{- include "healthchecks.labels" . | nindent 4 }}
+spec:
+  isCA: true
+  commonName: {{ .Values.certManager.caCommonName }}
+  secretName: {{ include "healthchecks.fullname" . }}-ca
+  duration: 87600h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Never
+  issuerRef:
+    name: {{ include "healthchecks.fullname" . }}-selfsigned
+    kind: ClusterIssuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ .Values.ingress.tls.clusterIssuer }}
+  labels:
+    {{- include "healthchecks.labels" . | nindent 4 }}
+spec:
+  ca:
+    secretName: {{ include "healthchecks.fullname" . }}-ca
+{{- end }}

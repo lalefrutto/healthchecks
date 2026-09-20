@@ -1,0 +1,22 @@
+apiVersion: v2
+name: healthchecks
+description: Healthchecks.io — cron job monitoring (Django) with PostgreSQL, background workers, Ingress and TLS
+type: application
+version: 0.1.0
+appVersion: "3.x"
+keywords:
+  - healthchecks
+  - monitoring
+  - cron
+  - django
+home: https://github.com/lalefrutto/healthchecks
+sources:
+  - https://github.com/lalefrutto/healthchecks
+  - https://github.com/healthchecks/healthchecks
+maintainers:
+  - name: Ilnaz
+dependencies:
+  - name: postgresql
+    version: 0.1.0
+    # Локальный subchart: charts/postgresql
+    condition: postgresql.enabled

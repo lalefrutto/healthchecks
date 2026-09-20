@@ -1,0 +1,17 @@
+{{ .Chart.Name }} {{ .Chart.Version }} установлен как релиз "{{ .Release.Name }}" в namespace "{{ .Release.Namespace }}".
+{{- if .Values.ingress.enabled }}
+
+Приложение: {{ if .Values.ingress.tls.enabled }}https{{ else }}http{{ end }}://{{ .Values.ingress.host }}
+Локально (minikube на Windows): запустите `minikube tunnel` и добавьте в hosts строку
+  127.0.0.1 {{ .Values.ingress.host }}
+{{- else }}
+
+Ingress выключен. Доступ через port-forward:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "healthchecks.fullname" . }} 8000:{{ .Values.service.port }}
+{{- end }}
+
+Состояние подов:
+  kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }}
+
+Создать суперпользователя:
+  kubectl -n {{ .Release.Namespace }} exec -it deploy/{{ include "healthchecks.fullname" . }}-web -- ./manage.py createsuperuser

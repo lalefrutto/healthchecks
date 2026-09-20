@@ -1,0 +1,18 @@
+{{- if .Values.email.externalName.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.email.host }}
+  labels:
+    {{- include "healthchecks.labels" . | nindent 4 }}
+    app.kubernetes.io/component: smtp
+spec:
+  # DNS-алиас (CNAME) на внешний SMTP-сервер, не разворачиваемый в кластере.
+  # Чтобы сменить провайдера, достаточно поменять email.externalName.target.
+  type: ExternalName
+  externalName: {{ .Values.email.externalName.target }}
+  ports:
+    - name: submission
+      port: {{ .Values.email.port }}
+      targetPort: {{ .Values.email.port }}
+{{- end }}

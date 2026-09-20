@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "healthchecks.fullname" . }}-web
+  labels:
+    {{- include "healthchecks.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  replicas: {{ .Values.web.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "healthchecks.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: web
+  template:
+    metadata:
+      labels:
+        {{- include "healthchecks.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: web
+      annotations:
+        # Перекатить поды при изменении конфигов
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/uwsgi: {{ include (print $.Template.BasePath "/uwsgi-configmap.yaml") . | sha256sum }}
+        {{- with .Values.web.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- include "healthchecks.waitForDb" . | nindent 6 }}
+      containers:
+        - name: healthchecks
+          image: {{ include "healthchecks.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["uwsgi", "/etc/healthchecks/uwsgi.ini"]
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          {{- include "healthchecks.env" . | nindent 10 }}
+          volumeMounts:
+            - name: uwsgi-config
+              mountPath: /etc/healthchecks
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+              # kubelet шлёт Host: <IP пода>, Django его отбросит (ALLOWED_HOSTS)
+              httpHeaders:
+                - name: Host
+                  value: {{ .Values.ingress.host }}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+              httpHeaders:
+                - name: Host
+                  value: {{ .Values.ingress.host }}
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.web.resources | nindent 12 }}
+      volumes:
+        - name: uwsgi-config
+          configMap:
+            name: {{ include "healthchecks.fullname" . }}-uwsgi
+      {{- with .Values.web.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.web.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.web.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

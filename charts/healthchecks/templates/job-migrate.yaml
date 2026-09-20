@@ -1,0 +1,37 @@
+{{- if .Values.migrate.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "healthchecks.fullname" . }}-migrate
+  labels:
+    {{- include "healthchecks.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migrate
+  annotations:
+    # Helm-хук: Job пересоздаётся на каждый install/upgrade (Job неизменяем),
+    # helm ждёт его завершения. post-, а не pre-: на pre-install БД ещё нет.
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: {{ .Values.migrate.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        {{- include "healthchecks.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: migrate
+    spec:
+      restartPolicy: OnFailure
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- include "healthchecks.waitForDb" . | nindent 6 }}
+      containers:
+        - name: migrate
+          image: {{ include "healthchecks.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["./manage.py", "migrate", "--noinput"]
+          {{- include "healthchecks.env" . | nindent 10 }}
+          resources:
+            {{- toYaml .Values.migrate.resources | nindent 12 }}
+{{- end }}

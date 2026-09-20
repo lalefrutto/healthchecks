@@ -1,0 +1,9 @@
+apiVersion: v2
+name: postgresql
+description: Minimal single-node PostgreSQL (StatefulSet + headless Service) used as a subchart of healthchecks
+type: application
+version: 0.1.0
+appVersion: "16"
+keywords:
+  - postgresql
+  - database

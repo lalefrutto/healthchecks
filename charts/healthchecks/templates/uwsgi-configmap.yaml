@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "healthchecks.fullname" . }}-uwsgi
+  labels:
+    {{- include "healthchecks.labels" . | nindent 4 }}
+data:
+  # Вариант docker/uwsgi.ini для Kubernetes: без hook-pre-app migrate (его
+  # делает Job) и без attach-daemon sendalerts/sendreports (отдельный Deployment).
+  uwsgi.ini: |
+    [uwsgi]
+    strict
+    master
+    die-on-term
+    http-socket = :8000
+    harakiri = 10
+    buffer-size = 32768
+    post-buffering = 16192
+    processes = {{ .Values.web.uwsgiProcesses }}
+    auto-procname
+    enable-threads
+    threads = 1
+    chdir = /opt/healthchecks
+    module = hc.wsgi:application
+    thunder-lock
+    disable-write-exception
+    max-fd = 10000
+    check-static = static-collected/
+    static-gzip-dir = static-collected/CACHE

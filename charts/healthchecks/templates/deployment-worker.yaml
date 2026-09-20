@@ -1,0 +1,45 @@
+{{- if .Values.worker.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "healthchecks.fullname" . }}-worker
+  labels:
+    {{- include "healthchecks.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  replicas: {{ .Values.worker.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "healthchecks.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        {{- include "healthchecks.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- include "healthchecks.waitForDb" . | nindent 6 }}
+      containers:
+        # sendalerts/sendreports — непрерывные фоновые процессы, поэтому
+        # Deployment, а не CronJob
+        - name: sendalerts
+          image: {{ include "healthchecks.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["./manage.py", "sendalerts", "--skip-checks"]
+          {{- include "healthchecks.env" . | nindent 10 }}
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+        - name: sendreports
+          image: {{ include "healthchecks.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["./manage.py", "sendreports", "--loop", "--skip-checks"]
+          {{- include "healthchecks.env" . | nindent 10 }}
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+{{- end }}
