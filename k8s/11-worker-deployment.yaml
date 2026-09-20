@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: healthchecks-worker
+  namespace: healthchecks
+  labels:
+    app: healthchecks-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: healthchecks-worker
+  template:
+    metadata:
+      labels:
+        app: healthchecks-worker
+    spec:
+      initContainers:
+        - name: wait-for-db
+          image: postgres:16
+          envFrom:
+            - configMapRef:
+                name: healthchecks-config
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER"; do
+                echo "waiting for postgres at $DB_HOST:$DB_PORT..."
+                sleep 2
+              done
+      containers:
+        # sendalerts и sendreports в официальном docker-образе запускаются как
+        # непрерывные фоновые процессы (attach-daemon в uwsgi.ini), а не по
+        # расписанию, поэтому это Deployment, а не CronJob.
+        - name: sendalerts
+          image: healthchecks:local
+          imagePullPolicy: IfNotPresent
+          command: ["./manage.py", "sendalerts", "--skip-checks"]
+          envFrom:
+            - configMapRef:
+                name: healthchecks-config
+            - secretRef:
+                name: healthchecks-secrets
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "96Mi"
+            limits:
+              cpu: "300m"
+              memory: "256Mi"
+        - name: sendreports
+          image: healthchecks:local
+          imagePullPolicy: IfNotPresent
+          command: ["./manage.py", "sendreports", "--loop", "--skip-checks"]
+          envFrom:
+            - configMapRef:
+                name: healthchecks-config
+            - secretRef:
+                name: healthchecks-secrets
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "96Mi"
+            limits:
+              cpu: "300m"
+              memory: "256Mi"

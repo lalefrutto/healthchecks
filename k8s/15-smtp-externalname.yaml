@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: smtp
+  namespace: healthchecks
+spec:
+  # ExternalName — DNS-алиас на внешний сервис, который не разворачивается
+  # в кластере. Приложение ходит на smtp.healthchecks.svc.cluster.local
+  # (или просто "smtp"), а куда это резолвится — решает манифест.
+  # Чтобы переехать на другой провайдер, достаточно поменять externalName,
+  # не трогая ConfigMap приложения.
+  #
+  # Оговорка: ExternalName — это CNAME, поэтому при TLS/STARTTLS приложение
+  # предъявляет серверу имя "smtp", а сертификат выдан на smtp.gmail.com.
+  # Для SMTP это решается тем, что Django/smtplib не проверяет hostname в
+  # STARTTLS по умолчанию; для HTTPS-API так делать нельзя — там нужен
+  # обычный DNS.
+  type: ExternalName
+  externalName: smtp.gmail.com
+  ports:
+    - name: submission
+      port: 587
+      targetPort: 587

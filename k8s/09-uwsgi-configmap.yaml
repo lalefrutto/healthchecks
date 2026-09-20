@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: healthchecks-uwsgi
+  namespace: healthchecks
+data:
+  # Вариант docker/uwsgi.ini для Kubernetes. Отличия от оригинала:
+  #   - нет hook-pre-app "manage.py migrate" — миграции применяет Job (10-migrate-job.yaml)
+  #   - нет attach-daemon sendalerts/sendreports — они живут в отдельном
+  #     Deployment healthchecks-worker (11-worker-deployment.yaml)
+  # Так у веб-пода одна обязанность — отдавать HTTP, а фоновые процессы
+  # масштабируются и перезапускаются независимо от него.
+  uwsgi.ini: |
+    [uwsgi]
+    strict
+    master
+    die-on-term
+    http-socket = :8000
+    harakiri = 10
+    buffer-size = 32768
+    post-buffering = 16192
+    processes = 4
+    auto-procname
+    enable-threads
+    threads = 1
+    chdir = /opt/healthchecks
+    module = hc.wsgi:application
+    thunder-lock
+    disable-write-exception
+
+    # workaround for https://github.com/unbit/uwsgi/issues/2299
+    max-fd = 10000
+
+    # compression
+    check-static = static-collected/
+    static-gzip-dir = static-collected/CACHE

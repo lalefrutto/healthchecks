@@ -15,10 +15,36 @@ spec:
       labels:
         app: healthchecks
     spec:
+      # Init-контейнер блокирует старт приложения, пока Postgres не начнёт
+      # принимать соединения. Без него при холодном старте кластера веб-под
+      # поднимался раньше БД и уходил в CrashLoopBackOff.
+      initContainers:
+        - name: wait-for-db
+          image: postgres:16
+          envFrom:
+            - configMapRef:
+                name: healthchecks-config
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER"; do
+                echo "waiting for postgres at $DB_HOST:$DB_PORT..."
+                sleep 2
+              done
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "16Mi"
+            limits:
+              cpu: "100m"
+              memory: "64Mi"
       containers:
         - name: healthchecks
           image: healthchecks:local
           imagePullPolicy: IfNotPresent
+          # Используем k8s-версию uwsgi.ini из ConfigMap вместо той, что в образе
+          command: ["uwsgi", "/etc/healthchecks/uwsgi.ini"]
           ports:
             - containerPort: 8000
               name: http
@@ -27,16 +53,30 @@ spec:
                 name: healthchecks-config
             - secretRef:
                 name: healthchecks-secrets
+          volumeMounts:
+            - name: uwsgi-config
+              mountPath: /etc/healthchecks
+              readOnly: true
           readinessProbe:
             httpGet:
               path: /
               port: 8000
+              # kubelet по умолчанию шлёт Host: <IP пода>, Django его отбросит
+              # (ALLOWED_HOSTS), поэтому подставляем реальный хост
+              httpHeaders:
+                - name: Host
+                  value: healthchecks.local
             initialDelaySeconds: 10
             periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /
               port: 8000
+              # kubelet по умолчанию шлёт Host: <IP пода>, Django его отбросит
+              # (ALLOWED_HOSTS), поэтому подставляем реальный хост
+              httpHeaders:
+                - name: Host
+                  value: healthchecks.local
             initialDelaySeconds: 20
             periodSeconds: 20
           resources:
@@ -46,3 +86,7 @@ spec:
             limits:
               cpu: "500m"
               memory: "512Mi"
+      volumes:
+        - name: uwsgi-config
+          configMap:
+            name: healthchecks-uwsgi

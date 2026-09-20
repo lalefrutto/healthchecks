@@ -1,0 +1,53 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: healthchecks-migrate
+  namespace: healthchecks
+  labels:
+    app: healthchecks
+    component: migrate
+spec:
+  # Job неизменяем после создания. Чтобы прогнать миграции повторно
+  # (после сборки нового образа), пересоздайте его:
+  #   kubectl replace --force -f k8s/10-migrate-job.yaml
+  backoffLimit: 3
+  # Завершившийся под не удаляем сразу — оставляем время посмотреть логи
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app: healthchecks
+        component: migrate
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        - name: wait-for-db
+          image: postgres:16
+          envFrom:
+            - configMapRef:
+                name: healthchecks-config
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER"; do
+                echo "waiting for postgres at $DB_HOST:$DB_PORT..."
+                sleep 2
+              done
+      containers:
+        - name: migrate
+          image: healthchecks:local
+          imagePullPolicy: IfNotPresent
+          command: ["./manage.py", "migrate", "--noinput"]
+          envFrom:
+            - configMapRef:
+                name: healthchecks-config
+            - secretRef:
+                name: healthchecks-secrets
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"

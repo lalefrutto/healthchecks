@@ -1,0 +1,31 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: healthchecks
+  namespace: healthchecks
+  labels:
+    app: healthchecks
+  annotations:
+    # cert-manager сам создаст Certificate и положит его в secret из tls.secretName
+    cert-manager.io/cluster-issuer: healthchecks-ca-issuer
+    # Редирект http -> https (для локальной разработки можно выключить)
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # Тела пингов могут быть до 100 KB (PING_BODY_LIMIT), запас с учётом заголовков
+    nginx.ingress.kubernetes.io/proxy-body-size: "1m"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - healthchecks.local
+      secretName: healthchecks-tls
+  rules:
+    - host: healthchecks.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: healthchecks-web
+                port:
+                  name: http

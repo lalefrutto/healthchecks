@@ -5,10 +5,22 @@ metadata:
   namespace: healthchecks
 data:
   # --- Базовые настройки Django-приложения ---
-  ALLOWED_HOSTS: "*"
-  SITE_ROOT: "http://localhost:8000"
+  # Внешний адрес — совпадает с host в Ingress (14-ingress.yaml).
+  # Локально: minikube tunnel + запись "127.0.0.1 healthchecks.local" в hosts.
+  SITE_ROOT: "https://healthchecks.local"
+  ALLOWED_HOSTS: "healthchecks.local,localhost,127.0.0.1"
+  # TLS терминируется на Ingress, приложению приходит plain HTTP —
+  # по этому заголовку Django понимает, что исходный запрос был https
+  SECURE_PROXY_SSL_HEADER: "HTTP_X_FORWARDED_PROTO,https"
   DEFAULT_FROM_EMAIL: "noreply@example.com"
   DEBUG: "False"
+
+  # --- Исходящая почта через ExternalName-сервис (15-smtp-externalname.yaml) ---
+  # Логин/пароль SMTP (EMAIL_HOST_USER / EMAIL_HOST_PASSWORD) — в Secret,
+  # пока не заданы: письма не уйдут, но приложение работает.
+  EMAIL_HOST: "smtp"
+  EMAIL_PORT: "587"
+  EMAIL_USE_TLS: "True"
 
   # --- Подключение к Postgres (StatefulSet healthchecks-db) ---
   DB: "postgres"

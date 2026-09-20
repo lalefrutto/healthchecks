@@ -1,0 +1,53 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: healthchecks-prune
+  namespace: healthchecks
+  labels:
+    app: healthchecks
+    component: prune
+spec:
+  # Периодическая чистка: устаревшие записи token bucket (rate limiting)
+  # и старые пинги/уведомления у "толстых" проверок.
+  schedule: "*/10 * * * *"
+  # Не запускать новый прогон, пока не завершился предыдущий
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  # Если прогон пропущен (например, кластер был выключен) — не догонять
+  # старые запуски, а просто ждать следующего окна
+  startingDeadlineSeconds: 300
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 600
+      template:
+        metadata:
+          labels:
+            app: healthchecks
+            component: prune
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: prune
+              image: healthchecks:local
+              imagePullPolicy: IfNotPresent
+              command:
+                - sh
+                - -c
+                - |
+                  set -e
+                  ./manage.py prunetokenbucket --skip-checks
+                  ./manage.py prunepingsslow --skip-checks
+              envFrom:
+                - configMapRef:
+                    name: healthchecks-config
+                - secretRef:
+                    name: healthchecks-secrets
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "96Mi"
+                limits:
+                  cpu: "300m"
+                  memory: "256Mi"
