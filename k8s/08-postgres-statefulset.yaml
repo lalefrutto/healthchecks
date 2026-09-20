@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: healthchecks-db
+  namespace: healthchecks
+spec:
+  serviceName: healthchecks-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: healthchecks-db
+  template:
+    metadata:
+      labels:
+        app: healthchecks-db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: healthchecks-config
+                  key: DB_NAME
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: healthchecks-config
+                  key: DB_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: healthchecks-secrets
+                  key: DB_PASSWORD
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+              # subPath, чтобы Postgres не спотыкался о служебные файлы
+              # (lost+found и т.п.), которые hostPath может создать в корне тома.
+              subPath: postgres
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "healthchecks"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+      volumes:
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: healthchecks-postgres-pvc

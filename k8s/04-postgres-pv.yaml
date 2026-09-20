@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: healthchecks-postgres-pv
+  labels:
+    app: healthchecks-db
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: manual
+  # hostPath годится для локального minikube (один узел).
+  # В облаке/проде это будет volume от реального провайдера (например EBS/PD/CSI).
+  hostPath:
+    path: /data/healthchecks-postgres
+    type: DirectoryOrCreate

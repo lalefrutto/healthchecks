@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: healthchecks-db
+  namespace: healthchecks
+spec:
+  # Headless service — обязателен для StatefulSet, даёт стабильное DNS-имя поду.
+  clusterIP: None
+  selector:
+    app: healthchecks-db
+  ports:
+    - port: 5432
+      targetPort: 5432
