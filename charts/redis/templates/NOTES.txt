@@ -1,0 +1,9 @@
+Redis Stack "{{ .Release.Name }}" в namespace "{{ .Release.Namespace }}".
+
+Внутри кластера: {{ include "redis.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}
+{{- if eq .Values.service.type "LoadBalancer" }}
+Снаружи (minikube tunnel): 127.0.0.1:{{ .Values.service.port }}
+{{- end }}
+{{- if .Values.auth.enabled }}
+Пароль лежит в Secret {{ include "redis.secretName" . }} (ключ password), источник — Vault secret/redis.
+{{- end }}

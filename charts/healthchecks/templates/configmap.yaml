@@ -28,6 +28,11 @@ data:
   CELERY_RESULT_BACKEND: {{ .Values.global.celery.resultBackend | quote }}
   CELERY_TASK_DEFAULT_QUEUE: {{ .Values.global.celery.queue | quote }}
   {{- end }}
+  {{- if .Values.global.redis.enabled }}
+  REDIS_HOST: {{ .Values.global.redis.host | quote }}
+  REDIS_PORT: {{ .Values.global.redis.port | quote }}
+  REDIS_DB: {{ .Values.global.redis.db | quote }}
+  {{- end }}
   DB: "postgres"
   DB_HOST: {{ include "healthchecks.database.host" . | quote }}
   DB_PORT: {{ include "healthchecks.database.port" . | quote }}

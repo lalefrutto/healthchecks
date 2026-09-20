@@ -38,6 +38,16 @@ global:
     resultBackend: django-db
     queue: api-tasks
 
+  # --- Redis (отдельный релиз charts/redis, deploy/redis) — кэш приложения ---
+  redis:
+    enabled: true
+    host: redis
+    port: 6379
+    db: 0
+    # Пароль — из Secret'а релиза redis (значение из Vault secret/redis)
+    existingSecret: redis
+    passwordKey: password
+
 # Доп. переменные окружения для всех контейнеров приложения
 # (веб, воркер, миграции, prune). См. docs/self_hosted_configuration.md
 extraEnv: []

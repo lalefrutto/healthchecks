@@ -6,7 +6,7 @@
 #   1. vault operator init (один раз) -> ключ и root-токен в deploy/vault/.vault-keys.json
 #   2. unseal
 #   3. KV v2 secrets engine на пути secret/
-#   4. секреты: secret/healthchecks, secret/rabbitmq, secret/flower (генерируются, если ещё нет)
+#   4. секреты: secret/healthchecks, secret/rabbitmq, secret/flower, secret/redis (генерируются, если ещё нет)
 #   5. policies из deploy/vault/policies/*.hcl (по одной на компонент)
 #   6. AppRole healthchecks со всеми этими policy -> ROLE_ID / SECRET_ID в .env
 #
@@ -85,6 +85,10 @@ ensure_secret secret/rabbitmq \
 # Flower (Задание 3): HTTP basic auth для UI, формат user:password
 ensure_secret secret/flower \
   basic_auth="admin:$(rand_secret 24)"
+
+# Redis (Задание 4): пароль requirepass
+ensure_secret secret/redis \
+  password="$(rand_secret 32)"
 
 # --- 5. policies -----------------------------------------------------------
 POLICIES=""

@@ -57,3 +57,7 @@ global:
     passwordKey: password
   celery:
     queue: api-tasks
+  redis:
+    enabled: true
+    existingSecret: redis
+    passwordKey: password

@@ -1,0 +1,9 @@
+apiVersion: v2
+name: redis
+description: Single-node Redis Stack (redis-stack-server) — StatefulSet, headless Service, LoadBalancer Service, PVC. Own chart instead of bitnami/redis (images return 403)
+type: application
+version: 0.1.0
+appVersion: "7.4.0-v8"
+keywords:
+  - redis
+  - cache

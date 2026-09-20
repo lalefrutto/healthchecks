@@ -77,4 +77,13 @@ env:
         key: {{ .Values.global.rabbitmq.passwordKey }}
   - name: CELERY_BROKER_URL
     value: "amqp://$(RABBITMQ_USER):$(RABBITMQ_PASSWORD)@$(RABBITMQ_HOST):$(RABBITMQ_PORT)/$(RABBITMQ_VHOST)"
+  {{- if .Values.global.redis.enabled }}
+  - name: REDIS_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: {{ .Values.global.redis.existingSecret }}
+        key: {{ .Values.global.redis.passwordKey }}
+  - name: REDIS_URL
+    value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/$(REDIS_DB)"
+  {{- end }}
 {{- end }}

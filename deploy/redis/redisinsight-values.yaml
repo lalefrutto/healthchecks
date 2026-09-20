@@ -1,0 +1,38 @@
+# Values для чарта heywood8/redisinsight — веб-UI для Redis.
+#   https://redisinsight.local  (строка "127.0.0.1 redisinsight.local" в hosts)
+# Подключение к Redis добавляется в UI: host `redis`, port 6379, пароль из
+# Vault (secret/redis). Учётки RedisInsight не хранит в git — только в своём PVC.
+
+ingress:
+  enabled: true
+  annotations:
+    cert-manager.io/cluster-issuer: healthchecks-ca-issuer
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  pathType: Prefix
+  hosts:
+    - host: redisinsight.local
+      paths:
+        - /
+      pathType: Prefix
+  tls:
+    - secretName: redisinsight-tls
+      hosts:
+        - redisinsight.local
+
+# Данные RedisInsight (список подключений, настройки) — на PVC
+persistentVolumeClaim:
+  create: true
+  accessMode: ReadWriteOnce
+  storageClassName: ""
+  storage: 256Mi
+
+# RedisInsight проверяет Origin; за Ingress'ом нужно явно разрешить свой адрес
+trustedOrigins: "https://redisinsight.local"
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 300m
+    memory: 512Mi

@@ -1,0 +1,48 @@
+# Default values for the redis chart.
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  # redis-stack-server = Redis + модули (RedisJSON, RediSearch, ...), без UI
+  repository: redis/redis-stack-server
+  tag: "7.4.0-v8"
+  pullPolicy: IfNotPresent
+
+auth:
+  enabled: true
+  # Пароль (requirepass) приходит из Vault через secrets.yaml (deploy/redis)
+  password: ""
+  # Готовый Secret с ключом `password`
+  existingSecret: ""
+
+# Доп. аргументы redis-server
+extraArgs:
+  - --maxmemory 128mb
+  - --maxmemory-policy allkeys-lru
+
+service:
+  # Headless-сервис для StatefulSet создаётся всегда (<fullname>-headless);
+  # этот — для клиентов внутри кластера и снаружи (LoadBalancer + minikube tunnel)
+  type: LoadBalancer
+  port: 6379
+
+persistence:
+  enabled: true
+  size: 1Gi
+  # Пусто -> default StorageClass кластера (в minikube — standard, динамический)
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 300m
+    memory: 256Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

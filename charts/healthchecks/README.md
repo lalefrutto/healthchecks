@@ -44,6 +44,8 @@ charts/healthchecks/
 | `RABBITMQ_HOST/PORT/USER/VHOST`, `CELERY_*` | ConfigMap |
 | `CELERY_BROKER_URL` | собирается в манифесте как `amqp://$(RABBITMQ_USER):$(RABBITMQ_PASSWORD)@…` — Kubernetes подставляет ранее объявленные переменные, пароль нигде не дублируется |
 | `FLOWER_BASIC_AUTH` | Secret `healthchecks-flower` (Vault `secret/flower`) |
+| `REDIS_HOST/PORT/DB` | ConfigMap |
+| `REDIS_PASSWORD`, `REDIS_URL` | Secret `redis` (релиз чарта Redis, Vault `secret/redis`); URL собирается через `$(VAR)` |
 
 Subchart'ы не видят helper'ы родителя, поэтому образ, параметры брокера и имена
 ресурсов приложения передаются им через `global.*` в `values.yaml`.
@@ -103,6 +105,7 @@ helm uninstall healthchecks -n healthchecks
 | `global.image.*` | `healthchecks:local` | образ приложения (для всех компонентов и subchart'ов) |
 | `global.rabbitmq.*` | `rabbitmq:5672`, secret `rabbitmq` | параметры брокера |
 | `global.celery.resultBackend`, `global.celery.queue` | `django-db`, `api-tasks` | backend результатов и очередь Celery |
+| `global.redis.*` | `redis:6379/0`, secret `redis` | параметры кэша Redis |
 | `celery-worker.enabled`, `celery-worker.replicaCount`, `celery-worker.concurrency` | `true`, `1`, `2` | subchart Celery-воркера |
 | `flower.enabled`, `flower.ingress.host`, `flower.basicAuth` | `true`, `flower.local`, из Vault | subchart Flower |
 | `postgresql.enabled` | `true` | развернуть subchart Postgres |
