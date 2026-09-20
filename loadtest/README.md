@@ -66,3 +66,44 @@ web:
     requests: {cpu: 250m, memory: 400Mi}
     limits:   {cpu: 1000m, memory: 640Mi}
 ```
+
+## Часть 3 — HPA и VPA
+
+### HPA ([templates/hpa.yaml](../charts/healthchecks/templates/hpa.yaml), `web.autoscaling.*`)
+
+`autoscaling/v2`, метрика — CPU в процентах от `requests.cpu` (250m), цель 70%,
+1–4 реплики. `behavior`: scale-up без окна стабилизации (до +100% / +2 пода за 30 с),
+scale-down — окно 120 с и по одному поду в минуту, чтобы не «дребезжать».
+
+Прогон Locust 200 пользователей, 150 с (`kubectl get hpa -w`):
+
+```
+cpu: 36%/70%   REPLICAS 1        # до нагрузки
+cpu: 142%/70%  REPLICAS 3        # SuccessfulRescale: New size: 3; cpu above target
+...нагрузка снята, окно стабилизации 120 с...
+SuccessfulRescale: New size: 2; reason: All metrics below target
+SuccessfulRescale: New size: 1; reason: All metrics below target
+```
+
+Под нагрузкой при 3 подах Locust показал 0.06% ошибок, avg 1.8 с (200 users).
+
+### VPA ([templates/vpa.yaml](../charts/healthchecks/templates/vpa.yaml), `vpa.*`)
+
+VPA установлен чартом `fairwinds-stable/vpa` ([deploy/vpa/values.yaml](../deploy/vpa/values.yaml)),
+только recommender. Объект VPA — для **celery-worker** в режиме `Off`
+(рекомендации без пересоздания подов). Для web VPA не ставится: он под HPA по
+CPU, а VPA и HPA на одной метрике конфликтуют.
+
+```
+$ kubectl -n healthchecks describe vpa healthchecks-celery-worker
+  Recommendation:
+    Container Recommendations:
+      Container Name:  celery-worker
+      Lower Bound:   Cpu: 50m   Memory: 128Mi
+      Target:        Cpu: 50m   Memory: 248153480   (~237Mi)
+      Uncapped Target: Cpu: 23m Memory: 248153480
+      Upper Bound:   Cpu: 1     Memory: 1Gi
+```
+
+Рекомендация по памяти (~237Mi) выше текущего request воркера (192Mi) —
+кандидат на правку `celery-worker.resources` после накопления статистики.

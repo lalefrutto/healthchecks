@@ -1,0 +1,54 @@
+{{- if .Values.web.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "healthchecks.fullname" . }}-web
+  labels:
+    {{- include "healthchecks.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "healthchecks.fullname" . }}-web
+  minReplicas: {{ .Values.web.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.web.autoscaling.maxReplicas }}
+  metrics:
+    {{- if .Values.web.autoscaling.targetCPUUtilizationPercentage }}
+    # Процент от resources.requests.cpu (нужен metrics-server)
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.web.autoscaling.targetCPUUtilizationPercentage }}
+    {{- end }}
+    {{- if .Values.web.autoscaling.targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.web.autoscaling.targetMemoryUtilizationPercentage }}
+    {{- end }}
+  behavior:
+    scaleUp:
+      # Реагировать быстро: без окна стабилизации, до +100% подов (или +2) за 30 с
+      stabilizationWindowSeconds: 0
+      selectPolicy: Max
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 30
+        - type: Pods
+          value: 2
+          periodSeconds: 30
+    scaleDown:
+      # Сворачиваться осторожно: окно стабилизации, по одному поду в минуту
+      stabilizationWindowSeconds: {{ .Values.web.autoscaling.scaleDownStabilizationSeconds }}
+      selectPolicy: Min
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+{{- end }}

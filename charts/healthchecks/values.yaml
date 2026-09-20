@@ -132,10 +132,26 @@ web:
     readinessFailureThreshold: 3
     # liveness терпимее: перезапуск пода под нагрузкой только усугубляет
     livenessFailureThreshold: 6
+  # HPA (Задание 7, Часть 3): по CPU относительно requests.cpu (250m).
+  # По замерам один под держит ~200 пользователей при ~550m CPU, т.е. при
+  # 70% от request (175m) HPA начнёт добавлять поды задолго до насыщения.
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 0
+    # Окно стабилизации перед scale-down (по умолчанию в k8s 300 с)
+    scaleDownStabilizationSeconds: 120
   podAnnotations: {}
   nodeSelector: {}
   tolerations: []
   affinity: {}
+
+# VPA для celery-worker (режим рекомендаций), см. templates/vpa.yaml
+vpa:
+  enabled: true
+  updateMode: "Off"
 
 service:
   type: ClusterIP

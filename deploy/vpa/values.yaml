@@ -1,0 +1,14 @@
+# Values для чарта fairwinds-stable/vpa (Vertical Pod Autoscaler).
+#   helm upgrade --install vpa fairwinds-stable/vpa -n vpa --create-namespace -f deploy/vpa/values.yaml
+#
+# Нужен только recommender: VPA у нас в режиме "Off" (рекомендации в
+# `kubectl describe vpa`), поды никто не пересоздаёт.
+recommender:
+  enabled: true
+  extraArgs:
+    # Быстрее давать рекомендации на учебном кластере (по умолчанию 1 мин)
+    recommender-interval: 30s
+updater:
+  enabled: false
+admissionController:
+  enabled: false

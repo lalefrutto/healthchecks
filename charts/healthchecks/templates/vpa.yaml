@@ -1,0 +1,32 @@
+{{- if .Values.vpa.enabled }}
+{{- /*
+VPA для celery-worker в режиме рекомендаций (updateMode: Off): смотрим
+kubectl describe vpa, руками переносим в resources. Для web VPA не ставим —
+он масштабируется HPA по CPU, а VPA и HPA по одной метрике конфликтуют.
+Требует установленного VPA (recommender): deploy/vpa.
+*/}}
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: {{ include "healthchecks.fullname" . }}-celery-worker
+  labels:
+    {{- include "healthchecks.labels" . | nindent 4 }}
+    app.kubernetes.io/component: celery-worker
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ .Release.Name }}-celery-worker
+  updatePolicy:
+    updateMode: {{ .Values.vpa.updateMode | quote }}
+  resourcePolicy:
+    containerPolicies:
+      - containerName: "*"
+        minAllowed:
+          cpu: 50m
+          memory: 128Mi
+        maxAllowed:
+          cpu: 1000m
+          memory: 1Gi
+        controlledResources: ["cpu", "memory"]
+{{- end }}
