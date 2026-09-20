@@ -9,3 +9,7 @@ hc/local_settings.py
 static-collected
 
 CLAUDE.md
+
+# Локальные секреты (Vault unseal key / root token, AppRole creds)
+.env
+deploy/vault/.vault-keys.json

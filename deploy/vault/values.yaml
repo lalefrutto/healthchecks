@@ -1,0 +1,41 @@
+# Values для официального чарта hashicorp/vault (локальный minikube).
+#
+#   helm repo add hashicorp https://helm.releases.hashicorp.com
+#   helm install vault hashicorp/vault -n vault --create-namespace -f deploy/vault/values.yaml
+#
+# Standalone-режим с file-хранилищем на PVC. Для прода — HA + raft, auto-unseal.
+server:
+  standalone:
+    enabled: true
+  dataStorage:
+    enabled: true
+    size: 1Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  # API + UI наружу через nginx-ingress; TLS выпускает cert-manager тем же
+  # CA-issuer'ом, что и для приложения (charts/healthchecks)
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: healthchecks-ca-issuer
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    hosts:
+      - host: vault.local
+        paths: []
+    tls:
+      - hosts:
+          - vault.local
+        secretName: vault-tls
+
+ui:
+  enabled: true
+
+injector:
+  # Agent injector не используем — секреты в чарт попадают через helm-secrets/vals
+  enabled: false

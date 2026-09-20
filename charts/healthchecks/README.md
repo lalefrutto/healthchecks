@@ -8,11 +8,12 @@ PostgreSQL вынесен в локальный subchart `charts/postgresql`.
 ```
 charts/healthchecks/
 ├── Chart.yaml                  # метаданные, зависимость от subchart postgresql
-├── values.yaml                 # все настраиваемые параметры
+├── values.yaml                 # все настраиваемые параметры (без секретов)
+├── secrets.yaml                # ссылки ref+vault:// на секреты, разворачивает helm-secrets
 ├── templates/
 │   ├── _helpers.tpl            # имена, labels, общие блоки env / init-контейнера
 │   ├── configmap.yaml          # настройки приложения (SITE_ROOT, DB_*, EMAIL_*)
-│   ├── secret.yaml             # SECRET_KEY (TODO: Vault, Задание 2 Часть 2)
+│   ├── secret.yaml             # SECRET_KEY (значение приходит из Vault)
 │   ├── uwsgi-configmap.yaml    # uwsgi.ini для k8s
 │   ├── deployment-web.yaml     # веб-приложение + init wait-for-db
 │   ├── deployment-worker.yaml  # sendalerts / sendreports
@@ -29,7 +30,13 @@ charts/healthchecks/
 ## Установка
 
 Предварительно (один раз): minikube с аддоном `ingress`, установленный
-cert-manager и собранный образ — см. [k8s/README.md](../../k8s/README.md).
+cert-manager и собранный образ — см. [k8s/README.md](../../k8s/README.md);
+Vault с секретами приложения — см. [deploy/vault/README.md](../../deploy/vault/README.md).
+
+Штатный способ — `scripts/deploy.sh`: он подставляет секреты из Vault через
+helm-secrets/vals и делает `helm upgrade --install`. Команды ниже — «ручной»
+вариант, секреты тогда нужно передать самому (`--set secrets.secretKey=...
+--set postgresql.auth.password=...`), иначе `required` в шаблонах остановит деплой.
 
 ```sh
 helm lint charts/healthchecks
@@ -58,7 +65,7 @@ helm uninstall healthchecks -n healthchecks
 | `image.repository`, `image.tag` | `healthchecks`, `local` | образ приложения |
 | `config.siteRoot` | `https://healthchecks.local` | внешний URL, должен совпадать с `ingress.host` |
 | `config.allowedHosts` | `healthchecks.local,localhost,127.0.0.1` | `ALLOWED_HOSTS` |
-| `secrets.secretKey` / `secrets.existingSecret` | placeholder / `""` | Django `SECRET_KEY` |
+| `secrets.secretKey` / `secrets.existingSecret` | `""` (из Vault через `secrets.yaml`) | Django `SECRET_KEY` |
 | `extraEnv` | `[]` | доп. переменные окружения для всех контейнеров |
 | `web.replicaCount`, `web.resources` | `1` | веб-поды |
 | `worker.enabled` | `true` | Deployment с `sendalerts`/`sendreports` |
@@ -70,7 +77,7 @@ helm uninstall healthchecks -n healthchecks
 | `certManager.createIssuers` | `true` | создать self-signed CA и issuer'ы |
 | `email.host`, `email.externalName.*` | `smtp`, `smtp.gmail.com` | ExternalName-сервис для SMTP |
 | `postgresql.enabled` | `true` | развернуть subchart Postgres |
-| `postgresql.auth.*` | `healthchecks` / placeholder | БД, пользователь, пароль |
+| `postgresql.auth.*` | `healthchecks` / пароль из Vault | БД, пользователь, пароль |
 | `postgresql.persistence.hostPath.path` | `/data/healthchecks-postgres` | hostPath для minikube |
 | `externalDatabase.*` | — | внешняя БД при `postgresql.enabled=false` |
 

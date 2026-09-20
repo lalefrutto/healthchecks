@@ -19,6 +19,7 @@ spec:
         app.kubernetes.io/component: worker
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secrets: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}{{ if .Values.postgresql.enabled }}{{ .Values.postgresql.auth.password | sha256sum }}{{ end }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:

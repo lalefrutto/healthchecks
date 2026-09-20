@@ -19,6 +19,7 @@ spec:
       annotations:
         # Перекатить поды при изменении конфигов
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secrets: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}{{ if .Values.postgresql.enabled }}{{ .Values.postgresql.auth.password | sha256sum }}{{ end }}
         checksum/uwsgi: {{ include (print $.Template.BasePath "/uwsgi-configmap.yaml") . | sha256sum }}
         {{- with .Values.web.podAnnotations }}
         {{- toYaml . | nindent 8 }}

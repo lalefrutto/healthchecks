@@ -28,8 +28,10 @@ config:
   secureProxySslHeader: "HTTP_X_FORWARDED_PROTO,https"
 
 secrets:
-  # Django SECRET_KEY. TODO: Задание 2, Часть 2 — вынести в Vault.
-  secretKey: change-me-django-secret-key
+  # Django SECRET_KEY. Значение живёт в Vault (secret/healthchecks#SECRET_KEY)
+  # и подставляется из secrets.yaml через helm-secrets/vals — см. scripts/deploy.sh.
+  # Пустое значение -> `required` в шаблоне не даст задеплоить без секрета.
+  secretKey: ""
   # Имя существующего Secret с ключом SECRET_KEY вместо создания своего
   existingSecret: ""
 
@@ -140,8 +142,8 @@ postgresql:
   auth:
     database: healthchecks
     username: healthchecks
-    # TODO: Задание 2, Часть 2 — вынести в Vault
-    password: change-me-strong-password
+    # Пароль живёт в Vault (secret/healthchecks#DB_PASSWORD), см. secrets.yaml
+    password: ""
   persistence:
     size: 1Gi
     storageClass: manual
