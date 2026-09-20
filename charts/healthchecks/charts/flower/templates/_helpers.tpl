@@ -95,6 +95,18 @@ env:
   - name: MONGODB_URL
     value: "mongodb://$(MONGODB_USER):$(MONGODB_PASSWORD)@$(MONGODB_HOST):$(MONGODB_PORT)/$(MONGODB_DB)?authSource=$(MONGODB_DB)"
   {{- end }}
+  {{- if .Values.global.s3.enabled }}
+  - name: S3_ACCESS_KEY
+    valueFrom:
+      secretKeyRef:
+        name: {{ default (printf "%s-s3" (include "flower.appFullname" .)) .Values.global.s3.existingSecret }}
+        key: access_key
+  - name: S3_SECRET_KEY
+    valueFrom:
+      secretKeyRef:
+        name: {{ default (printf "%s-s3" (include "flower.appFullname" .)) .Values.global.s3.existingSecret }}
+        key: secret_key
+  {{- end }}
 {{- end }}
 
 {{- define "flower.secretName" -}}

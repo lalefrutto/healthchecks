@@ -59,6 +59,19 @@ global:
     existingSecret: mongodb-custom-user-0-secret
     passwordKey: CUSTOM_PASSWORD
 
+  # --- S3 / MinIO (релиз minio/minio, deploy/minio) — тела пингов ---
+  s3:
+    enabled: true
+    # host:port без схемы (так ожидает клиент minio-py в hc/lib/s3.py)
+    endpoint: minio:9000
+    bucket: healthchecks
+    region: us-east-1
+    # Внутри кластера — plain HTTP; в облаке (S3/managed MinIO за TLS) -> true
+    secure: false
+    # Secret с ключами access_key / secret_key; пусто -> чарт создаёт свой
+    # (<fullname>-s3) из secrets.s3AccessKey / secrets.s3SecretKey (Vault)
+    existingSecret: ""
+
 # Доп. переменные окружения для всех контейнеров приложения
 # (веб, воркер, миграции, prune). См. docs/self_hosted_configuration.md
 extraEnv: []
@@ -82,6 +95,9 @@ secrets:
   secretKey: ""
   # Имя существующего Secret с ключом SECRET_KEY вместо создания своего
   existingSecret: ""
+  # Ключи S3/MinIO для тел пингов — из Vault secret/minio (см. secrets.yaml)
+  s3AccessKey: ""
+  s3SecretKey: ""
 
 email:
   # Хост SMTP. Если externalName.enabled — это имя ExternalName-сервиса

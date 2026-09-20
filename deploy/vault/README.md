@@ -55,9 +55,10 @@ bash deploy/vault/setup.sh
    `secret/healthchecks` (`SECRET_KEY`, `DB_PASSWORD`),
    `secret/rabbitmq` (`username`, `password`, `erlang_cookie`),
    `secret/flower` (`basic_auth`), `secret/redis` (`password`),
-   `secret/mongodb` (`root_password`, `username`, `password`, `express_basic_auth_password`);
+   `secret/mongodb` (`root_password`, `username`, `password`, `express_basic_auth_password`),
+   `secret/minio` (`root_user`, `root_password`, `access_key`, `secret_key`);
 5. policies из [policies/](policies/) — по одной на компонент, только чтение
-   своего пути: `healthchecks-read`, `rabbitmq-read`, `flower-read`, `redis-read`, `mongodb-read`;
+   своего пути: `healthchecks-read`, `rabbitmq-read`, `flower-read`, `redis-read`, `mongodb-read`, `minio-read`;
 6. auth-метод **AppRole**, роль `healthchecks` со всеми policy из п.5
    (список собирается из файлов, новая policy = новый `.hcl`);
    `role_id`/`secret_id` записываются в `.env` (шаблон — [.env.example](../../.env.example)).
@@ -71,6 +72,7 @@ bash scripts/deploy.sh                 # приложение: helm upgrade --in
 bash scripts/deploy-rabbitmq.sh        # RabbitMQ (deploy/rabbitmq)
 bash scripts/deploy-redis.sh           # Redis + RedisInsight (deploy/redis)
 bash scripts/deploy-mongodb.sh         # MongoDB + mongo-express (deploy/mongodb)
+bash scripts/deploy-minio.sh           # MinIO (deploy/minio)
 bash scripts/deploy.sh --dry-run       # доп. аргументы уходят в helm
 ```
 

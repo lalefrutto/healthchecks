@@ -62,3 +62,6 @@ global:
     enabled: true
     existingSecret: mongodb-custom-user-0-secret
     passwordKey: CUSTOM_PASSWORD
+  s3:
+    enabled: true
+    existingSecret: ""

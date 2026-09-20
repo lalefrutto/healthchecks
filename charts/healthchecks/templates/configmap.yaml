@@ -39,6 +39,13 @@ data:
   MONGODB_DB: {{ .Values.global.mongodb.database | quote }}
   MONGODB_USER: {{ .Values.global.mongodb.username | quote }}
   {{- end }}
+  {{- if .Values.global.s3.enabled }}
+  # Тела пингов > 100 байт уходят в S3 (hc/lib/s3.py), ключи — в Secret
+  S3_ENDPOINT: {{ .Values.global.s3.endpoint | quote }}
+  S3_BUCKET: {{ .Values.global.s3.bucket | quote }}
+  S3_REGION: {{ .Values.global.s3.region | quote }}
+  S3_SECURE: {{ .Values.global.s3.secure | ternary "True" "False" | quote }}
+  {{- end }}
   DB: "postgres"
   DB_HOST: {{ include "healthchecks.database.host" . | quote }}
   DB_PORT: {{ include "healthchecks.database.port" . | quote }}

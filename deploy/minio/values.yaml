@@ -1,0 +1,96 @@
+# Values для официального чарта minio/minio (https://charts.min.io/).
+# S3-совместимое объектное хранилище; приложение healthchecks штатно умеет
+# хранить в S3 тела пингов (настройки S3_*).
+#
+#   scripts/deploy-minio.sh   (root-учётка и ключи приложения — из Vault, см. secrets.yaml)
+
+# Один под, один диск — для minikube. В облаке: mode: distributed, replicas >= 4
+mode: standalone
+replicas: 1
+drivesPerNode: 1
+
+persistence:
+  enabled: true
+  size: 2Gi
+  # Пусто -> default StorageClass (minikube: standard)
+  storageClass: ""
+
+# Чарт по умолчанию просит 16Gi памяти — для локального кластера много
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# S3 API: внутри кластера minio:9000, снаружи — LoadBalancer + minikube tunnel
+service:
+  type: LoadBalancer
+  port: "9000"
+
+# Web Console (UI)
+consoleService:
+  type: ClusterIP
+  port: "9001"
+
+consoleIngress:
+  enabled: true
+  ingressClassName: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: healthchecks-ca-issuer
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # Console ходит на API по этому же адресу, тела объектов могут быть большими
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+  path: /
+  hosts:
+    - minio.local
+  tls:
+    - secretName: minio-console-tls
+      hosts:
+        - minio.local
+
+# Bucket для тел пингов healthchecks — создаётся post-install job'ом чарта
+buckets:
+  - name: healthchecks
+    policy: none
+    purge: false
+
+# Политика: доступ только к bucket'у healthchecks
+policies:
+  - name: healthchecks-rw
+    statements:
+      - resources:
+          - "arn:aws:s3:::healthchecks"
+        actions:
+          - "s3:GetBucketLocation"
+          - "s3:ListBucket"
+          - "s3:ListBucketMultipartUploads"
+      - resources:
+          - "arn:aws:s3:::healthchecks/*"
+        actions:
+          - "s3:AbortMultipartUpload"
+          - "s3:DeleteObject"
+          - "s3:GetObject"
+          - "s3:ListMultipartUploadParts"
+          - "s3:PutObject"
+
+# Пользователь приложения с этой политикой (ключи — из secrets.yaml)
+users:
+  - accessKey: healthchecks
+    secretKey: ""
+    policy: healthchecks-rw
+
+# Job'ы чарта, создающие bucket/policy/users, запускаются под root-учёткой
+makeBucketJob:
+  resources:
+    requests:
+      memory: 64Mi
+makePolicyJob:
+  resources:
+    requests:
+      memory: 64Mi
+makeUserJob:
+  resources:
+    requests:
+      memory: 64Mi

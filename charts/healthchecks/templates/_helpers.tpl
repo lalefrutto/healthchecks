@@ -153,9 +153,25 @@ env:
   - name: MONGODB_URL
     value: "mongodb://$(MONGODB_USER):$(MONGODB_PASSWORD)@$(MONGODB_HOST):$(MONGODB_PORT)/$(MONGODB_DB)?authSource=$(MONGODB_DB)"
   {{- end }}
+  {{- if .Values.global.s3.enabled }}
+  - name: S3_ACCESS_KEY
+    valueFrom:
+      secretKeyRef:
+        name: {{ include "healthchecks.s3.secretName" . }}
+        key: access_key
+  - name: S3_SECRET_KEY
+    valueFrom:
+      secretKeyRef:
+        name: {{ include "healthchecks.s3.secretName" . }}
+        key: secret_key
+  {{- end }}
   {{- with .Values.extraEnv }}
   {{- toYaml . | nindent 2 }}
   {{- end }}
+{{- end }}
+
+{{- define "healthchecks.s3.secretName" -}}
+{{- default (printf "%s-s3" (include "healthchecks.fullname" .)) .Values.global.s3.existingSecret }}
 {{- end }}
 
 {{/*

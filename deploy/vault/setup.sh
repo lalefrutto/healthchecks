@@ -6,7 +6,7 @@
 #   1. vault operator init (один раз) -> ключ и root-токен в deploy/vault/.vault-keys.json
 #   2. unseal
 #   3. KV v2 secrets engine на пути secret/
-#   4. секреты: secret/healthchecks, secret/rabbitmq, secret/flower, secret/redis, secret/mongodb (генерируются, если ещё нет)
+#   4. секреты: secret/healthchecks, secret/rabbitmq, secret/flower, secret/redis, secret/mongodb, secret/minio (генерируются, если ещё нет)
 #   5. policies из deploy/vault/policies/*.hcl (по одной на компонент)
 #   6. AppRole healthchecks со всеми этими policy -> ROLE_ID / SECRET_ID в .env
 #
@@ -96,6 +96,13 @@ ensure_secret secret/mongodb \
   username="healthchecks" \
   password="$(rand_secret 32)" \
   express_basic_auth_password="$(rand_secret 24)"
+
+# MinIO (Задание 6): root для чарта и Console, S3-ключи приложения
+ensure_secret secret/minio \
+  root_user="minioadmin" \
+  root_password="$(rand_secret 32)" \
+  access_key="healthchecks" \
+  secret_key="$(rand_secret 40)"
 
 # --- 5. policies -----------------------------------------------------------
 POLICIES=""
