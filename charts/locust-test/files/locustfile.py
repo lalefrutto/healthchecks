@@ -1,22 +1,3 @@
-"""Нагрузочный тест healthchecks (Задание 7).
-
-Бьёт по реальным эндпоинтам приложения:
-  * GET  /api/v3/checks/        — список проверок проекта (API-ключ, SQL + сериализация)
-  * GET  /api/v3/checks/<uuid>  — одна проверка
-  * POST /ping/<uuid>           — входящий пинг (самый горячий путь healthchecks)
-  * GET  /api/v3/tasks/stats/   — агрегат из Задания 4 (кэшируется в Redis)
-
-Запуск (локально, через Ingress + minikube tunnel):
-  HC_API_KEY=<rw-ключ проекта> locust -f charts/locust-test/files/locustfile.py --host https://healthchecks.local
-Headless-прогон с нарастающей нагрузкой:
-  HC_API_KEY=... locust -f charts/locust-test/files/locustfile.py --host https://healthchecks.local \
-      --headless -u 100 -r 5 -t 3m --only-summary
-
-Переменные окружения:
-  HC_API_KEY   — ключ проекта (Settings -> API access), обязательно
-  HC_CHECK     — uuid проверки для пингов; если не задан, создаётся проверка "locust"
-"""
-
 from __future__ import annotations
 
 import os
@@ -38,7 +19,6 @@ class HealthchecksUser(HttpUser):
         self.headers = {"X-Api-Key": API_KEY}
         self.check_uuid = CHECK_UUID
         if not self.check_uuid:
-            # Один раз на пользователя: проверка "locust" (unique -> не плодим дубликаты)
             r = self.client.post(
                 "/api/v3/checks/",
                 json={"name": "locust", "unique": ["name"], "timeout": 3600},
@@ -61,7 +41,6 @@ class HealthchecksUser(HttpUser):
 
     @task(10)
     def ping(self) -> None:
-        # Небольшое тело (< 100 байт), чтобы не грузить S3 на каждом пинге
         self.client.post(
             f"/ping/{self.check_uuid}",
             data=f"locust ping {random.randint(0, 10**6)}",
