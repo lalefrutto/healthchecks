@@ -17,6 +17,14 @@ vault_login() {
   # shellcheck disable=SC1090
   set -a; . "$ENV_FILE"; set +a
 
+  # Адрес Vault из .env можно перекрыть снаружи. Нужно, когда https://vault.local
+  # недоступен (нет `minikube tunnel` — он требует прав администратора на Windows):
+  #   VAULT_ADDR_OVERRIDE=http://127.0.0.1:8200  (kubectl port-forward -n vault svc/vault 8200:8200)
+  # Так работает scripts/bootstrap.sh; сам .env при этом остаётся штатным.
+  if [ -n "${VAULT_ADDR_OVERRIDE:-}" ]; then
+    export VAULT_ADDR="$VAULT_ADDR_OVERRIDE"
+  fi
+
   if [ "${VAULT_AUTH_METHOD:-approle}" = "approle" ]; then
     : "${VAULT_ROLE_ID:?VAULT_ROLE_ID не задан в $ENV_FILE}"
     : "${VAULT_SECRET_ID:?VAULT_SECRET_ID не задан в $ENV_FILE}"
