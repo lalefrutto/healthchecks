@@ -19,7 +19,11 @@ ingress:
       hosts:
         - redisinsight.local
 
-# Данные RedisInsight (список подключений, настройки) — на PVC
+# Данные RedisInsight (список подключений, настройки) — на PVC.
+# storageClassName оставлен пустым, чтобы values не зависели от кластера;
+# реальное имя класса по умолчанию подставляет scripts/deploy-redis.sh. Без
+# этого PVC создаётся с null, класс дописывает Kubernetes, и повторный деплой
+# падает с "spec is immutable after creation".
 persistentVolumeClaim:
   create: true
   accessMode: ReadWriteOnce
