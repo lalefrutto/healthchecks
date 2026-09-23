@@ -3,6 +3,93 @@
 [![Tests](https://github.com/healthchecks/healthchecks/actions/workflows/tests.yml/badge.svg)](https://github.com/healthchecks/healthchecks/actions/workflows/tests.yml)
 [![Coverage Status](https://coveralls.io/repos/healthchecks/healthchecks/badge.svg?branch=master&service=github)](https://coveralls.io/github/healthchecks/healthchecks?branch=master)
 
+---
+
+## Запуск стенда в Kubernetes
+
+Это форк healthchecks, на котором собран учебный стенд: приложение в minikube,
+секреты в Vault, RabbitMQ + Celery, Redis, MongoDB, MinIO, HPA/VPA, Locust,
+CI/CD с self-hosted runner'ом и werf. Что именно сделано — в [ОТЧЁТ.md](ОТЧЁТ.md);
+ниже — только как это поднять. Остальная часть README — документация апстрима
+по самому приложению.
+
+### Что нужно на машине
+
+Docker (запущенный), `minikube`, `kubectl`, `helm` с плагином
+[helm-secrets](https://github.com/jkroepke/helm-secrets), `vault`, `vals`,
+`python`, `openssl`, `curl`. Для self-hosted runner'а — авторизованный `gh`
+или `GITHUB_PAT` со scope `repo`.
+
+### Одной командой
+
+```sh
+bash scripts/bootstrap.sh --recreate     # с нуля, включая пересоздание кластера
+bash scripts/bootstrap.sh                # на запущенном кластере (идемпотентно)
+bash scripts/bootstrap.sh --no-arc       # без self-hosted runner'а
+```
+
+Скрипт поднимает всё по порядку: аддоны minikube, cert-manager, Vault
+(init/unseal/KV/policies/AppRole), образ приложения, RabbitMQ/Redis/MongoDB/MinIO,
+VPA, locust-operator, чарт приложения, тестовые данные и ARC. Порядок продиктован
+зависимостями — подробности и грабли описаны в [ОТЧЁТ.md](ОТЧЁТ.md#восстановление-с-нуля).
+
+Прав администратора скрипт не требует: до Vault он ходит через
+`kubectl port-forward`, а не через `minikube tunnel`.
+
+### Доступ из браузера — это уже вручную
+
+Нужны права администратора Windows. В отдельном терминале держите туннель:
+
+```sh
+minikube tunnel
+```
+
+и добавьте в `C:\Windows\System32\drivers\etc\hosts`:
+
+```
+127.0.0.1 healthchecks.local
+127.0.0.1 flower.local
+127.0.0.1 vault.local
+127.0.0.1 rabbitmq.local
+127.0.0.1 redisinsight.local
+127.0.0.1 mongo-express.local
+127.0.0.1 minio.local
+127.0.0.1 locust.local
+```
+
+После этого приложение — на https://healthchecks.local. Сертификаты выпускает
+локальный CA `healthchecks-local-ca`, поэтому браузер предупредит — это ожидаемо.
+Учётки сервисов лежат в Vault, например basic auth Flower:
+
+```sh
+source scripts/lib.sh && vault_login
+vals get 'ref+vault://secret/flower#/basic_auth'
+```
+
+### По частям
+
+```sh
+bash deploy/vault/setup.sh             # Vault: init/unseal, секреты, policies, AppRole
+bash scripts/deploy.sh                 # чарт приложения (секреты из Vault)
+bash scripts/deploy-rabbitmq.sh        # RabbitMQ
+bash scripts/deploy-redis.sh           # Redis + RedisInsight
+bash scripts/deploy-mongodb.sh         # MongoDB + mongo-express
+bash scripts/deploy-minio.sh           # MinIO
+bash scripts/deploy-arc.sh             # self-hosted runner (ARC)
+bash scripts/seed-e2e.sh               # тестовые данные: проект e2e с API-ключом
+bash scripts/deploy-locust-test.sh     # распределённый нагрузочный тест
+bash scripts/werf-deploy.sh            # сборка и выкат через werf
+```
+
+Образ приложения собирается только через `minikube image build` — `docker-env`
+на Windows с containerd не работает:
+
+```sh
+minikube image build -t healthchecks:local -f docker/Dockerfile .
+```
+
+---
+
 Healthchecks is a cron job monitoring service. It listens for HTTP requests
 and email messages ("pings") from your cron jobs and scheduled tasks ("checks").
 When a ping does not arrive on time, Healthchecks sends out alerts.
