@@ -12,7 +12,7 @@
 #   сертификаты) -> locust-operator -> тестовые данные -> ARC.
 #
 # Требуется: docker (запущенный), minikube, kubectl, helm + плагин secrets,
-# vault, vals, python, openssl; для ARC — авторизованный gh или GITHUB_PAT.
+# vault, vals, python, openssl, curl; для ARC — авторизованный gh или GITHUB_PAT.
 #
 # Права администратора НЕ нужны: вместо `minikube tunnel` скрипт поднимает
 # kubectl port-forward к Vault и передаёт адрес через VAULT_ADDR_OVERRIDE
@@ -44,7 +44,7 @@ step() { echo; echo "############ $* ############"; }
 
 # --- 0. проверки ------------------------------------------------------------
 step "0. проверка инструментов"
-for t in docker minikube kubectl helm vault vals python openssl; do
+for t in docker minikube kubectl helm vault vals python openssl curl; do
   command -v "$t" >/dev/null || { echo "!! не найден $t" >&2; exit 1; }
 done
 docker version >/dev/null 2>&1 || {
