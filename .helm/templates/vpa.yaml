@@ -1,10 +1,41 @@
 {{- if .Values.vpa.enabled }}
 {{- /*
-VPA для celery-worker в режиме рекомендаций (updateMode: Off): смотрим
-kubectl describe vpa, руками переносим в resources. Для web VPA не ставим —
-он масштабируется HPA по CPU, а VPA и HPA по одной метрике конфликтуют.
-Требует установленного VPA (recommender): deploy/vpa.
+VPA в режиме рекомендаций (updateMode: Off): смотрим kubectl describe vpa,
+руками переносим в resources. Требует установленного VPA (recommender): deploy/vpa.
+
+web (API) масштабируется HPA по CPU, поэтому его VPA управляет только памятью
+(controlledResources: memory) — HPA и VPA не спорят за одну метрику. Да и в
+режиме Off VPA поды не трогает, только считает рекомендации.
 */}}
+{{- if .Values.vpa.web.enabled }}
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: {{ include "healthchecks.fullname" . }}-web
+  labels:
+    {{- include "healthchecks.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "healthchecks.fullname" . }}-web
+  updatePolicy:
+    updateMode: {{ .Values.vpa.updateMode | quote }}
+  resourcePolicy:
+    containerPolicies:
+      - containerName: healthchecks
+        minAllowed:
+          memory: {{ .Values.vpa.web.minAllowedMemory }}
+        maxAllowed:
+          memory: {{ .Values.vpa.web.maxAllowedMemory }}
+        controlledResources: ["memory"]
+      # init-контейнер wait-for-db короткоживущий, рекомендации для него не нужны
+      - containerName: wait-for-db
+        mode: "Off"
+{{- end }}
+{{- if .Values.vpa.celeryWorker.enabled }}
+---
 apiVersion: autoscaling.k8s.io/v1
 kind: VerticalPodAutoscaler
 metadata:
@@ -29,4 +60,5 @@ spec:
           cpu: 1000m
           memory: 1Gi
         controlledResources: ["cpu", "memory"]
+{{- end }}
 {{- end }}

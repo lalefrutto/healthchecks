@@ -149,10 +149,19 @@ web:
   tolerations: []
   affinity: {}
 
-# VPA для celery-worker (режим рекомендаций), см. templates/vpa.yaml
+# VPA в режиме рекомендаций (Off), см. templates/vpa.yaml. Нужен CRD из deploy/vpa.
 vpa:
   enabled: true
   updateMode: "Off"
+  # web (API): только память — CPU отдан HPA (web.autoscaling)
+  web:
+    enabled: true
+    # Коридор рекомендаций: в покое ~370Mi (4 uWSGI-процесса), лимит 640Mi
+    minAllowedMemory: 256Mi
+    maxAllowedMemory: 1Gi
+  # celery-worker: CPU и память, HPA у него нет
+  celeryWorker:
+    enabled: true
 
 service:
   type: ClusterIP
