@@ -6,7 +6,14 @@ metadata:
     {{- include "healthchecks.labels" . | nindent 4 }}
     app.kubernetes.io/component: web
 spec:
+  {{- /*
+  При включённом HPA число реплик — его зона: поле replicas в манифесте
+  сбрасывало бы поды к replicaCount на каждом helm upgrade / werf converge /
+  деплое из CI, прямо посреди нагрузки.
+  */}}
+  {{- if not .Values.web.autoscaling.enabled }}
   replicas: {{ .Values.web.replicaCount }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "healthchecks.selectorLabels" . | nindent 6 }}
