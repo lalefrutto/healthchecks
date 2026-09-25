@@ -74,6 +74,8 @@ web:
 `autoscaling/v2`, метрика — CPU в процентах от `requests.cpu` (250m), цель 70%,
 1–4 реплики. `behavior`: scale-up без окна стабилизации (до +100% / +2 пода за 30 с),
 scale-down — окно 120 с и по одному поду в минуту, чтобы не «дребезжать».
+При включённом HPA чарт не пишет `replicas` в Deployment — иначе каждый
+`helm upgrade` / `werf converge` / деплой из CI сбрасывал бы поды к одному.
 
 Прогон Locust 200 пользователей, 150 с (`kubectl get hpa -w`):
 
@@ -87,12 +89,34 @@ SuccessfulRescale: New size: 1; reason: All metrics below target
 
 Под нагрузкой при 3 подах Locust показал 0.06% ошибок, avg 1.8 с (200 users).
 
+Повторный прогон через оператор (200 пользователей, 2 воркера, 2 мин):
+1 → 2 → 3 пода примерно за минуту после старта, 7781 запрос, 1 ошибка (0.01%),
+avg 1.7 с, p95 3.5 с, ~65 req/s. После снятия нагрузки — окно 120 с, затем
+3 → 2 → 1 с шагом в минуту; весь цикл ~6 минут.
+
 ### VPA ([templates/vpa.yaml](../.helm/templates/vpa.yaml), `vpa.*`)
 
 VPA установлен чартом `fairwinds-stable/vpa` ([deploy/vpa/values.yaml](../deploy/vpa/values.yaml)),
-только recommender. Объект VPA — для **celery-worker** в режиме `Off`
-(рекомендации без пересоздания подов). Для web VPA не ставится: он под HPA по
-CPU, а VPA и HPA на одной метрике конфликтуют.
+только recommender. Оба объекта VPA — в режиме `Off` (рекомендации без
+пересоздания подов):
+
+* **web (API)** — `controlledResources: ["memory"]`. Web масштабирует HPA по
+  CPU, а HPA и VPA на одной метрике конфликтуют, поэтому VPA отдана только
+  память (коридор 256Mi–1Gi, init-контейнер `wait-for-db` исключён);
+* **celery-worker** — CPU и память, HPA у него нет.
+
+```
+$ kubectl -n healthchecks describe vpa healthchecks-web      # после прогона Locust
+  Recommendation:
+    Container Recommendations:
+      Container Name:  healthchecks
+      Lower Bound:     Memory: 303532569   (~289Mi)
+      Target:          Memory: 476450463   (~454Mi)
+      Upper Bound:     Memory: 1Gi
+```
+
+Цель по памяти для web (~454Mi) выше текущего request (400Mi), но в пределах
+лимита 640Mi — под нагрузкой процессы uWSGI подрастают.
 
 ```
 $ kubectl -n healthchecks describe vpa healthchecks-celery-worker
