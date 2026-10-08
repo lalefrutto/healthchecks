@@ -1,9 +1,4 @@
 # Values для чарта cloudpirates/rabbitmq (локальный minikube).
-# Bitnami-образы с 2025 года отдают 403 без подписки, поэтому — Cloud Pirates
-# (тот же подход: официальный образ rabbitmq:*-management, StatefulSet, PVC).
-#
-#   scripts/deploy-rabbitmq.sh   (логин/пароль/erlang cookie — из Vault, см. secrets.yaml)
-
 replicaCount: 1
 
 # Логин/пароль/erlang cookie приходят из Vault (deploy/rabbitmq/secrets.yaml)

@@ -3,120 +3,81 @@
 nameOverride: ""
 fullnameOverride: ""
 
-# global.* видят и subchart'ы (celery-worker, flower): образ приложения,
-# параметры брокера и Celery — один источник для всех компонентов.
 global:
   image:
     repository: healthchecks
     tag: local
-    # Образ собирается локально через `minikube image build`, поэтому IfNotPresent
     pullPolicy: IfNotPresent
   imagePullSecrets: []
 
-  # Имена ресурсов чарта healthchecks, из которых subchart'ы собирают окружение.
-  # Пусто -> вычисляются из имени релиза (как в _helpers.tpl).
   app:
     configMapName: ""
     secretName: ""
     postgresqlSecretName: ""
 
-  # --- RabbitMQ (отдельный релиз чарта cloudpirates/rabbitmq, deploy/rabbitmq) ---
   rabbitmq:
     enabled: true
     host: rabbitmq
     port: 5672
-    # vhost "/" в URL кодируется как %2F -> amqp://.../%2F
     vhost: "%2F"
-    # Логин — несекретный (тот же, что auth.username в deploy/rabbitmq); пароль
-    # берётся из Secret'а релиза rabbitmq, ключ passwordKey
     username: healthchecks
     existingSecret: rabbitmq
     passwordKey: password
 
   celery:
-    # django-db: результаты в Postgres через django-celery-results
     resultBackend: django-db
     queue: api-tasks
 
-  # --- Redis (отдельный релиз charts/redis, deploy/redis) — кэш приложения ---
   redis:
     enabled: true
     host: redis
     port: 6379
     db: 0
-    # Пароль — из Secret'а релиза redis (значение из Vault secret/redis)
     existingSecret: redis
     passwordKey: password
 
-  # --- MongoDB (релиз cloudpirates/mongodb, deploy/mongodb) — журнал событий задач ---
   mongodb:
     enabled: true
     host: mongodb
     port: 27017
     database: healthchecks
     username: healthchecks
-    # Пароль пользователя приложения — из Secret'а релиза mongodb (значение из Vault)
     existingSecret: mongodb-custom-user-0-secret
     passwordKey: CUSTOM_PASSWORD
 
-  # --- S3 / MinIO (релиз minio/minio, deploy/minio) — тела пингов ---
   s3:
     enabled: true
-    # host:port без схемы (так ожидает клиент minio-py в hc/lib/s3.py)
     endpoint: minio:9000
     bucket: healthchecks
     region: us-east-1
-    # Внутри кластера — plain HTTP; в облаке (S3/managed MinIO за TLS) -> true
     secure: false
-    # Secret с ключами access_key / secret_key; пусто -> чарт создаёт свой
-    # (<fullname>-s3) из secrets.s3AccessKey / secrets.s3SecretKey (Vault)
     existingSecret: ""
 
-# Доп. переменные окружения для всех контейнеров приложения
-# (веб, воркер, миграции, prune). См. docs/self_hosted_configuration.md
 extraEnv: []
-#  - name: REGISTRATION_OPEN
-#    value: "False"
 
 config:
-  # Внешний адрес — совпадает с ingress.host
   siteRoot: https://healthchecks.local
-  # Пусто -> хост берётся из siteRoot. Локальные адреса нужны для probe/port-forward,
-  # имя сервиса — для клиентов внутри кластера (Locust через оператор)
   allowedHosts: "healthchecks.local,localhost,127.0.0.1,healthchecks,healthchecks.healthchecks.svc.cluster.local"
   debug: false
   defaultFromEmail: noreply@example.com
-  # TLS терминируется на Ingress, по этому заголовку Django узнаёт про https
   secureProxySslHeader: "HTTP_X_FORWARDED_PROTO,https"
 
 secrets:
-  # Django SECRET_KEY. Значение живёт в Vault (secret/healthchecks#SECRET_KEY)
-  # и подставляется из secrets.yaml через helm-secrets/vals — см. scripts/deploy.sh.
-  # Пустое значение -> `required` в шаблоне не даст задеплоить без секрета.
   secretKey: ""
-  # Имя существующего Secret с ключом SECRET_KEY вместо создания своего
   existingSecret: ""
-  # Ключи S3/MinIO для тел пингов — из Vault secret/minio (см. secrets.yaml)
   s3AccessKey: ""
   s3SecretKey: ""
 
 email:
-  # Хост SMTP. Если externalName.enabled — это имя ExternalName-сервиса
   host: smtp
   port: 587
   useTls: true
-  # user/password задаются через extraEnv или existingSecret (EMAIL_HOST_USER, EMAIL_HOST_PASSWORD)
   externalName:
     enabled: true
-    # Внешний SMTP-сервер, на который резолвится сервис `email.host`
     target: smtp.gmail.com
 
 web:
   replicaCount: 1
-  # Значения по замерам Locust (Задание 7, Часть 2): в покое 1m/370Mi
-  # (4 uWSGI-процесса), пик при ~100 пользователях — CPU упирался в старый
-  # лимит 500m (503 от ingress), память ~385Mi. Лимит CPU поднят до 1 ядра,
-  # request — на уровне «нормальной» нагрузки, чтобы HPA по CPU имел запас.
   resources:
     requests:
       cpu: 250m
@@ -124,42 +85,30 @@ web:
     limits:
       cpu: 1000m
       memory: 640Mi
-  # uWSGI-процессов на под. 8 процессов под нагрузкой не влезают в 640Mi
-  # (OOMKilled, ~90Mi на процесс), поэтому 4, а рост нагрузки закрывает HPA
-  # (Часть 3) — больше подов, а не больше процессов в поде.
   uwsgiProcesses: 4
   probes:
     timeoutSeconds: 5
     readinessFailureThreshold: 3
-    # liveness терпимее: перезапуск пода под нагрузкой только усугубляет
     livenessFailureThreshold: 6
-  # HPA (Задание 7, Часть 3): по CPU относительно requests.cpu (250m).
-  # По замерам один под держит ~200 пользователей при ~550m CPU, т.е. при
-  # 70% от request (175m) HPA начнёт добавлять поды задолго до насыщения.
   autoscaling:
     enabled: true
     minReplicas: 1
     maxReplicas: 4
     targetCPUUtilizationPercentage: 70
     targetMemoryUtilizationPercentage: 0
-    # Окно стабилизации перед scale-down (по умолчанию в k8s 300 с)
     scaleDownStabilizationSeconds: 120
   podAnnotations: {}
   nodeSelector: {}
   tolerations: []
   affinity: {}
 
-# VPA в режиме рекомендаций (Off), см. templates/vpa.yaml. Нужен CRD из deploy/vpa.
 vpa:
   enabled: true
   updateMode: "Off"
-  # web (API): только память — CPU отдан HPA (web.autoscaling)
   web:
     enabled: true
-    # Коридор рекомендаций: в покое ~370Mi (4 uWSGI-процесса), лимит 640Mi
     minAllowedMemory: 256Mi
     maxAllowedMemory: 1Gi
-  # celery-worker: CPU и память, HPA у него нет
   celeryWorker:
     enabled: true
 
@@ -168,7 +117,6 @@ service:
   port: 80
 
 worker:
-  # Фоновые процессы sendalerts и sendreports --loop
   enabled: true
   replicaCount: 1
   resources:
@@ -180,7 +128,6 @@ worker:
       memory: 256Mi
 
 migrate:
-  # Job с manage.py migrate, запускается helm-хуком после install/upgrade
   enabled: true
   backoffLimit: 3
   resources:
@@ -192,7 +139,6 @@ migrate:
       memory: 512Mi
 
 prune:
-  # CronJob: prunetokenbucket + prunepingsslow
   enabled: true
   schedule: "*/10 * * * *"
   resources:
@@ -203,7 +149,6 @@ prune:
       cpu: 300m
       memory: 256Mi
 
-# Init-контейнер, ждущий готовности Postgres (pg_isready)
 waitForDb:
   enabled: true
   image: postgres:16
@@ -224,29 +169,21 @@ ingress:
     nginx.ingress.kubernetes.io/proxy-body-size: "1m"
   tls:
     enabled: true
-    # ClusterIssuer cert-manager'а; пусто — сертификат не запрашивается,
-    # ожидается готовый secret с именем secretName
     clusterIssuer: healthchecks-ca-issuer
     secretName: healthchecks-tls
 
 certManager:
-  # Создать ClusterIssuer'ы для локальной разработки:
-  # selfsigned -> CA-сертификат -> CA ClusterIssuer (ingress.tls.clusterIssuer)
   createIssuers: true
-  # namespace, в котором установлен cert-manager (там должен лежать CA-secret)
   namespace: cert-manager
   caCommonName: healthchecks-local-ca
 
-# --- Subchart charts/celery-worker ---
 celery-worker:
   enabled: true
   replicaCount: 1
   concurrency: 2
 
-# --- Subchart charts/flower ---
 flower:
   enabled: true
-  # basicAuth ("user:password") приходит из Vault через secrets.yaml
   basicAuth: ""
   ingress:
     enabled: true
@@ -258,7 +195,6 @@ postgresql:
   auth:
     database: healthchecks
     username: healthchecks
-    # Пароль живёт в Vault (secret/healthchecks#DB_PASSWORD), см. secrets.yaml
     password: ""
   persistence:
     size: 1Gi
@@ -273,5 +209,4 @@ externalDatabase:
   port: 5432
   database: healthchecks
   username: healthchecks
-  # Secret с ключом `password`
   existingSecret: ""
