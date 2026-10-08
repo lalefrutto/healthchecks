@@ -9,6 +9,17 @@ mode: standalone
 replicas: 1
 drivesPerNode: 1
 
+# Официальные образы MinIO (quay.io/minio/*, docker.io/minio/*) с 2025 года
+# отдают 401/denied без подписки. Берём pgsty/* — поддерживаемую сообществом
+# сборку MinIO из исходников (тот же entrypoint и mc, что ждёт чарт).
+# Версии закреплены, чтобы стенд поднимался одинаково.
+image:
+  repository: pgsty/minio
+  tag: RELEASE.2026-08-04T00-00-00Z
+mcImage:
+  repository: pgsty/mc
+  tag: RELEASE.2026-09-16T00-00-00Z
+
 persistence:
   enabled: true
   size: 2Gi
